@@ -1,0 +1,29 @@
+[project]
+name = "gmu"
+version = "1.0.0"
+description = "Unisender CLI. Create E-mail message, send test message, check status and more. Gefera Media LTD."
+authors = [
+    {name = "Maksim Legeyda",email = "maksim.legeyda@yandex.ru"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer (>=0.16.0,<0.17.0)",
+    "premailer (>=3.10.0,<4.0.0)",
+    "beautifulsoup4 (>=4.13.4,<5.0.0)",
+    "requests (>=2.32.3,<3.0.0)",
+    "python-dotenv (>=1.1.0,<2.0.0)",
+    "cairosvg (>=2.8.2,<3.0.0)",
+    "termcolor (>=3.1.0,<4.0.0)",
+    "pillow (>=11.2.1,<12.0.0)"
+]
+
+[tool.poetry]
+packages = [{include = "gmu", from = "./"}]
+
+[tool.poetry.scripts]
+gmu = "gmu.main:app"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
