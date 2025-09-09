@@ -38,16 +38,16 @@ gmu --version
 Все библиотеки перечислены в файле ```pyproject.toml```   
 Все зависимости можно посмотреть в ```requirements.txt```   
 
-1. Typer
-2. Premailer
-3. beautifulsoup4
-4. requests
-5. python-dotenv
-6. cairosvg
-7. termcolor
-8. pillow  
+1. [Typer](https://github.com/fastapi/typer)
+2. [Premailer](https://github.com/peterbe/premailer)
+3. [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/)
+4. [requests](https://requests.readthedocs.io/en/latest/)
+5. [python-dotenv](https://github.com/theskumar/python-dotenv)
+6. [cairosvg](https://cairosvg.org/)
+7. [termcolor](https://github.com/termcolor/termcolor)
+8. [pillow](https://python-pillow.github.io/)  
 
-У CairoSVG есть дополнительные зависимости, которые нужно установить вручную.  
+У **CairoSVG** есть дополнительные зависимости, которые нужно установить вручную.  
 * Windows - [GTK-for-Windows-Runtime-Environment-Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer)  
 * macOS - cairo и libffi ([Homebrew](https://brew.sh/)). На macOS не тестировал, поэтому рекомендую ознакомиться с зависимостями в [документации CairoSVG](https://cairosvg.org/documentation/)  
 * Linux - cairo, python3-dev и libffi-dev пакеты  
@@ -63,16 +63,29 @@ gmu --version
 Для загрузки писем в Unisender необходимо указать API Key в файле ```.env```.
 
 **Доступные команды**
-1. ```gmu message create``` - создает письмо в Unisender. ID письма копируется в буфер обмена.
-2. ```gmu message update``` - обновляет письмо в Unisender. Из-за ограничения Unisender, вызывается два метода API - ```delete``` и ```create```, т.к. если вызывать метод ```update```, то при использовании картинок через директорию ```images/``` возникает ошибка, что Unisender не загружает картинки, а лишь обновляет саму верстку.
-3. ```gmu message delete``` - удаляет письмо в Unisender.
+1. Создает/обновляет письмо в Unisender. Если в рабочей директории есть gmu.json с message_id, то письмо будет обновлено (старое письмо удалено и создано новое), если файла gmu.json нет и/или нет message_id, то будет создано новое письмо
+```bash
+gmu message
+```
+2. Cоздает письмо в Unisender. ID письма копируется в буфер обмена.
+```bash
+gmu message create
+```
+3. Обновляет письмо в Unisender. Из-за ограничения Unisender, вызывается два метода API - ```delete``` и ```create```, т.к. если вызывать метод ```update```, то при использовании картинок через директорию ```images/``` возникает ошибка, что Unisender не загружает картинки, а лишь обновляет саму верстку.
+```bash
+gmu message update
+```
+4. Удаляет письмо в Unisender.
+```bash
+gmu message delete
+```
 
 ## Загрузка писем - [WebLetter-api](https://github.com/rastereo/webletter-api)
 Есть поддержка загрузки превью писем на [WebLetter](https://github.com/rastereo/webletter-api "Проект на GitHub. Нужно будет развернуть backend и frontend на сервере или локально и добавить адрес + токен в .env файл").
 Функция загрузки писем на WebLetter отличается от загрузи писем в Unisender, реализованы разные подходы.
 
 **Соответствующие команды:**
-1. ```gmu message wl``` - загрузить/обновить письмо на WebLetter
-2. ```gmu message wl-delete``` - удалить письмо
+1. ```gmu wl``` - загрузить/обновить письмо на WebLetter
+2. ```gmu wl delete``` - удалить письмо
 
 
