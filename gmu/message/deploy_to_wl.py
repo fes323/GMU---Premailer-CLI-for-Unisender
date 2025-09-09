@@ -18,7 +18,8 @@ gmu_cfg = GmuConfig("gmu.json")
 def deploy_to_wl():
     html_filename = glob.glob("*.html")[0]
     images_folder = "images"
-    if gmu_cfg.exists() is False:
+
+    if not gmu_cfg.exists():
         gmu_cfg.create()
 
     sender_name, sender_email, subject, html, attachments = get_html_and_attachments(
@@ -42,13 +43,13 @@ def deploy_to_wl():
     cfg_data = gmu_cfg.load()
     if cfg_data.get("webletter_id"):
         result = requests.put(
-            "https://wl.gefera.ru/api/webletters/upload",
+            str(os.environ.get("WL_ENDPOINT")),
             headers=headers,
             files=files
         )
     else:
         result = requests.post(
-            "https://wl.gefera.ru/api/webletters/upload",
+            str(os.environ.get("WL_ENDPOINT")),
             headers=headers,
             files=files
         )
@@ -64,4 +65,4 @@ def deploy_to_wl():
     gmu_cfg.update(data)
 
     print("SUCCESS",
-          f"Файл успешно загружен на WL - https://wl.gefera.ru/{data.get('webletter_id')}")
+          f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{data.get('webletter_id')}")

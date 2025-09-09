@@ -16,7 +16,7 @@ def delete_message(message_id: int):
     """
     result = uClient.delete_message(message_id)
 
-    gmu_cfg = GmuConfig(path="gmu.json", data=None)
+    gmu_cfg = GmuConfig(path="gmu.json")
     gmu_cfg.delete()
 
     if result:

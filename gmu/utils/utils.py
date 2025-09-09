@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import cairosvg
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from PIL import Image
@@ -92,8 +93,7 @@ def svg_to_png(svg_bytes: bytes) -> bytes:
     """
     Конвертирует SVG-изображение в PNG.
     """
-    import cairosvg
-    log("INFO", f"Конвертация SVG в PNG...")
+
     return cairosvg.svg2png(bytestring=svg_bytes)
 
 
@@ -113,7 +113,7 @@ def process_images(
         img_file = images_path / fname
         if not img_file.exists():
             log("WARNING",
-                f"image {fname} referenced in HTML but not found in {images_folder}/")
+                f"Изображение {fname} найдено в HTML, но нет в директории {images_folder}/")
             continue
         file_bytes = img_file.read_bytes()
         if fname.lower().endswith('.svg'):
@@ -227,7 +227,8 @@ def archive_email(html_filename: str, html_content: str, attachments: dict, arch
     if not archive_name:
         html_files = list(Path(".").glob("*.html"))
         if not html_files:
-            raise FileNotFoundError("HTML file not found in this directory")
+            raise FileNotFoundError(
+                "HTML не найден в рабочей директории. Проверьте, что вы в корректной директории.")
         name = html_files[0].stem
         archive_name = f"{name}.zip"
     images_folder = "images"
@@ -262,20 +263,27 @@ def get_html_and_attachments(
         html_file = Path(html_filename)
         if not html_file.exists():
             raise FileNotFoundError(f"File {html_file} not found")
+
     # 1. Чтение исходного HTML
     html_text = html_file.read_text(encoding="utf-8")
+
     # 2. Извлечение метаданных
     sender_name, sender_email, subject = extract_email_metadata_from_html(
         html_text)
+
     # 3. Поиск изображений (src и data-width), нормализация путей
     images_info, soup = find_images_in_html(
         html_text, replace_src)
+
     # 4. Работа с файлами: загрузка, ресайз, svg→png
     attachs, svg_names = process_images(
         images_info, images_folder=images_folder)
+
     # 5. Подмена .svg-на .png в soup согласно тому, что реально конвертировалось
     soup = replace_svg_references_in_html(soup, svg_names)
+
     # 6. Инлайнинг стилей
     inlined_html = inline_css_styles(str(soup))
+
     # Возврат
     return sender_name, sender_email, subject, inlined_html, attachs

@@ -22,6 +22,11 @@ def create_message(
     Если файл конфигурации существует, предлагает обновить или пересоздать.
     """
 
+    gmu_cfg = GmuConfig(path="gmu.json")
+
+    if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) is not None:
+        return log("WARNING", f"Письмо уже создано. Используется ID из gmu.json. ID: {gmu_cfg.data.get('message_id', '')}")
+
     sender_name, sender_email, subject, html, attachments = get_html_and_attachments(
         html_filename, images_folder, True
     )
@@ -39,14 +44,7 @@ def create_message(
         "subject": subject or "",
     }
 
-    gmu_cfg = GmuConfig(path="gmu.json")
-    if gmu_cfg.exists():
-
-        gmu_cfg.update(data)
-        log("SUCCESS",
-            f"Текущий файл gmu.json обновлен. Message ID: {result.get('message_id', '')}")
-    else:
-        gmu_cfg.create()
-        gmu_cfg.update(data)
-        log("SUCCESS",
-            f"Новый файл gmu.json создан. Message ID: {result.get('message_id', '')}")
+    gmu_cfg.create()
+    gmu_cfg.update(data)
+    log("SUCCESS",
+        f"Письмо загружено в Unisender. Message ID: {result.get('message_id', '')}")

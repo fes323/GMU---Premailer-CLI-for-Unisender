@@ -55,10 +55,17 @@ class GmuConfig:
             # Шаблон по умолчанию
             self._data = {
                 "message_id": "",
+                "message_url": "",
                 "sender_name": "",
                 "sender_email": "",
                 "subject": "",
-                "webletter_id": ""
+                "preheader": "",
+                "webletter_id": "",
+                "webletter_url": "",
+                "lang": "",
+                "size": "",
+                "created": "",
+                "updated": ""
             }
         self.save()
         log("SUCCESS",

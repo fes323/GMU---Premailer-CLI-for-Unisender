@@ -30,7 +30,7 @@ if env_path.exists():
 else:
     print(
         f"[WARNING] Файл .env не найден ни в {BASE_DIR} ни в {env_path.parent}")
-    # Здесь можно задать поведение по-умолчанию или выбросить ошибку
+    raise FileNotFoundError
 
 
 app = typer.Typer()
@@ -38,8 +38,4 @@ app = typer.Typer()
 
 app.add_typer(version_app)
 app.add_typer(campaign_app, name="campaign")
-app.add_typer(message_app, name="message")
-app.add_typer(message_app, name="message")
-app.add_typer(message_app, name="message")
-app.add_typer(message_app, name="message")
 app.add_typer(message_app, name="message")
