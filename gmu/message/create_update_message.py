@@ -10,7 +10,7 @@ app = typer.Typer()
 uClient = UnisenderClient()
 
 
-@app.command(name="", description="Создать/обновить E-mail письмо. Проверяется наличие файле gmu.json с ключом message_id в рабочей директории")
+@app.command(name="")
 def create_or_update_message(
     list_id: str = typer.Option(20547119, help="ID списка рассылки"),
     html_filename: str = typer.Option(
