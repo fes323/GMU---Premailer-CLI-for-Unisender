@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from .campaign import app as campaign_app
 from .message import app as message_app
 from .version import app as version_app
+from .webletter import app as webletter_app
 
 BASE_DIR = pathlib.Path(__file__).parent
 env_path = BASE_DIR / ".env"
@@ -39,3 +40,4 @@ app = typer.Typer()
 app.add_typer(version_app)
 app.add_typer(campaign_app, name="campaign")
 app.add_typer(message_app, name="message")
+app.add_typer(webletter_app, name="wl")

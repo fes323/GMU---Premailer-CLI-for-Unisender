@@ -4,7 +4,6 @@ import os
 import requests
 import typer
 from dotenv import load_dotenv
-from termcolor import colored
 
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.utils import log
@@ -14,7 +13,7 @@ app = typer.Typer()
 gmu_cfg = GmuConfig("gmu.json")
 
 
-@app.command(name="wl-delete")
+@app.command(name="delete")
 def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter")):
 
     if gmu_cfg.exists() is False:

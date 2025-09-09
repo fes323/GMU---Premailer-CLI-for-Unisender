@@ -14,7 +14,7 @@ app = typer.Typer()
 gmu_cfg = GmuConfig("gmu.json")
 
 
-@app.command(name="wl")
+@app.command(name="upload")
 def deploy_to_wl():
     html_filename = glob.glob("*.html")[0]
     images_folder = "images"
