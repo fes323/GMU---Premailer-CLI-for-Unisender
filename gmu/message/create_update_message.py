@@ -10,7 +10,7 @@ app = typer.Typer()
 uClient = UnisenderClient()
 
 
-@app.command(name="")
+@app.command(name="upsert")
 def create_or_update_message(
     list_id: str = typer.Option(20547119, help="ID списка рассылки"),
     html_filename: str = typer.Option(

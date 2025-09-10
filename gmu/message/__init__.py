@@ -8,6 +8,7 @@ from .update_message import app as update_message_app
 
 app = typer.Typer()
 
+
 app.add_typer(delete_message_app)
 app.add_typer(create_message_app)
 app.add_typer(send_test_email_app)
