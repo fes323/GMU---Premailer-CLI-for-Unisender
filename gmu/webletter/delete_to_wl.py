@@ -6,7 +6,7 @@ import typer
 from dotenv import load_dotenv
 
 from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.utils import log
+from gmu.utils.utils import table_print
 
 load_dotenv()
 app = typer.Typer()
@@ -17,7 +17,7 @@ gmu_cfg = GmuConfig("gmu.json")
 def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter")):
 
     if gmu_cfg.exists() is False:
-        log("ERROR", 'Файл gmu.json не найден.')
+        table_print("ERROR", 'Файл gmu.json не найден.')
         gmu_cfg.create()
 
     headers = {"Authorization": os.environ.get("WL_AUTH_TOKEN")}
@@ -28,7 +28,8 @@ def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter
         id = cfg_data.get("webletter_id")
 
     if id is None:
-        log("ERROR", "Не задан ID письма в Webletter. Укажите его через параметр --id или в gmu.json.")
+        table_print(
+            "ERROR", "Не задан ID письма в Webletter. Укажите его через параметр --id или в gmu.json.")
         return
 
     requests.delete(
@@ -38,4 +39,4 @@ def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter
 
     cfg_data["webletter_id"] = None
     gmu_cfg.update(cfg_data)
-    log("SUCCESS", f"Письмо успешно удалено из Webletter")
+    table_print("SUCCESS", f"Письмо успешно удалено из Webletter")

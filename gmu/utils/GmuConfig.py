@@ -3,7 +3,7 @@ import os
 
 from termcolor import colored
 
-from gmu.utils.utils import log
+from gmu.utils.utils import table_print
 
 
 class GmuConfig:
@@ -43,11 +43,12 @@ class GmuConfig:
         data: словарь с параметрами письма. Если не передан — пробует self._data.
         """
         if self.exists():
-            answer = log("INPUT",
-                         "Создать новый файл конфигурации и письмо в Unisender? (Y/N): "
-                         ).strip().lower()
+            answer = table_print("INPUT",
+                                 "Создать новый файл конфигурации и письмо в Unisender? (Y/N): "
+                                 ).strip().lower()
             if answer != 'y':
-                log("WARNING", "Создание нового файла конфигурации отменено.")
+                table_print(
+                    "WARNING", "Создание нового файла конфигурации отменено.")
                 return False
         if data is not None:
             self._data = data.copy()
@@ -68,8 +69,8 @@ class GmuConfig:
                 "updated": ""
             }
         self.save()
-        log("SUCCESS",
-            f"Новый файл конфигурации {self.path} создан.")
+        table_print("SUCCESS",
+                    f"Новый файл конфигурации {self.path} создан.")
         return True
 
     def update(self, data=None):
@@ -77,7 +78,8 @@ class GmuConfig:
         Обновить существующий файл новыми значениями из data (или self._data).
         """
         if not self.exists():
-            log("ERROR", f"Файл {self.path} не найден. Обновление невозможно.")
+            table_print(
+                "ERROR", f"Файл {self.path} не найден. Обновление невозможно.")
             return False
         old_data = self.load()
         if data is not None:
@@ -85,18 +87,18 @@ class GmuConfig:
         if self._data != old_data:
             self.save()
         else:
-            log("INFO",
-                "Данные в JSON не изменились. Обновление не требуется.")
+            table_print("INFO",
+                        "Данные в JSON не изменились. Обновление не требуется.")
         return True
 
     def delete(self):
         if self.exists():
             os.remove(self.path)
-            log("SUCCESS", f"Файл {self.path} удален.")
+            table_print("SUCCESS", f"Файл {self.path} удален.")
             return True
         else:
-            log("WARNING",
-                f"Файл {self.path} не найден. Удаление не требуется.")
+            table_print("WARNING",
+                        f"Файл {self.path} не найден. Удаление не требуется.")
             return False
 
     @property

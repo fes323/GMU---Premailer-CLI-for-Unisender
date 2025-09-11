@@ -4,7 +4,8 @@ from termcolor import colored
 
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import archive_email, get_html_and_attachments, log
+from gmu.utils.utils import (archive_email, get_html_and_attachments,
+                             table_print)
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -14,6 +15,7 @@ uClient = UnisenderClient()
 def update_message(
     html_filename: str = typer.Option(
         None, help="Имя HTML файла (по умолчанию первый .html в папке)"),
+    list_id: str = typer.Option(20547119, help="ID списка рассылки"),
     images_folder: str = typer.Option("images", help="Папка с картинками")
 ):
     """
@@ -25,7 +27,7 @@ def update_message(
     gmu_cfg = GmuConfig("gmu.json")
 
     if gmu_cfg is None or gmu_cfg.data is None or gmu_cfg.data.get("message_id", None) is None:
-        log(
+        table_print(
             "ERROR", "Файл gmu.json не найден или не содержит message_id.")
         return
 
@@ -34,20 +36,24 @@ def update_message(
 
     gmu_cfg.create()
 
-    sender_name, sender_email, subject, html, attachments = get_html_and_attachments(
-        html_filename, images_folder
+    process_result = get_html_and_attachments(
+        html_filename, images_folder, True
     )
 
-    archive_email(html_filename, html, attachments)
+    archive_email(html_filename, process_result.get(
+        'inlined_html'), process_result.get('attachments'))
 
-    result = uClient.create_email_message(
-        sender_name, sender_email, subject, html, 20547119, attachments
+    api_result = uClient.create_email_message(
+        process_result.get('sender_name'), process_result.get('sender_email'), process_result.get('subject'), process_result.get('inlined_html'), int(
+            list_id), process_result.get('attachments')
     )
 
     data = {
-        "message_id": result.get('message_id', ''),
-        "sender_name": sender_name or "",
-        "sender_email": sender_email or "",
-        "subject": subject or "",
+        "message_id": api_result.get('message_id', ''),
+        "sender_name": process_result.get('sender_name'),
+        "sender_email":  process_result.get('sender_email'),
+        "subject": process_result.get('subject'),
+        "preheader": process_result.get('preheader'),
+        "lang": process_result.get('lang'),
     }
     gmu_cfg.update(data)

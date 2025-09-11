@@ -4,7 +4,8 @@ from termcolor import colored
 from gmu.message.update_message import update_message
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import archive_email, get_html_and_attachments, log
+from gmu.utils.utils import (archive_email, get_html_and_attachments,
+                             table_print)
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -22,16 +23,19 @@ def create_or_update_message(
     Если файл конфигурации существует, предлагает обновить или пересоздать.
     """
 
-    sender_name, sender_email, subject, html, attachments = get_html_and_attachments(
+    process_result = get_html_and_attachments(
         html_filename, images_folder, True
     )
 
-    archive_email(html_filename, html, attachments)
+    archive_email(html_filename, process_result.get(
+        'inlined_html'), process_result.get('attachments'))
 
     data = {
-        "sender_name": sender_name or "",
-        "sender_email": sender_email or "",
-        "subject": subject or "",
+        "sender_name": process_result.get('sender_name'),
+        "sender_email":  process_result.get('sender_email'),
+        "subject": process_result.get('subject'),
+        "preheader": process_result.get('preheader'),
+        "lang": process_result.get('lang'),
     }
 
     gmu_cfg = GmuConfig(path="gmu.json")
@@ -43,29 +47,29 @@ def create_or_update_message(
         uClient.delete_message(gmu_cfg.data.get("message_id", None))
 
         # 2. Создаем новое письмо
-        result = uClient.create_email_message(
-            sender_name, sender_email, subject, html, int(
-                list_id), attachments
+        api_result = uClient.create_email_message(
+            process_result.get('sender_name'), process_result.get('sender_email'), process_result.get('subject'), process_result.get('inlined_html'), int(
+                list_id), process_result.get('attachments')
         )
 
-        data["message_id"] = result.get('message_id', '')
+        data["message_id"] = api_result.get('message_id', '')
 
         gmu_cfg.update(data)
-        log("SUCCESS",
-            f"Письмо обновлено, старое письмо было удалено. Message ID: {result.get('message_id', '')}")
+        table_print("SUCCESS",
+                    f"Письмо обновлено, старое письмо было удалено. Message ID: {api_result.get('message_id', '')}")
 
     # Если gmu.json не существует, то создаем
     else:
         gmu_cfg.create()
 
-        result = uClient.create_email_message(
-            sender_name, sender_email, subject, html, int(
-                list_id), attachments
+        api_result = uClient.create_email_message(
+            process_result.get('sender_name'), process_result.get('sender_email'), process_result.get('subject'), process_result.get('inlined_html'), int(
+                list_id), process_result.get('attachments')
         )
 
-        data["message_id"] = result.get('message_id', '')
+        data["message_id"] = api_result.get('message_id', '')
 
         gmu_cfg.update(data)
 
-        log("SUCCESS",
-            f"Письмо создано. Message ID: {result.get('message_id', '')}")
+        table_print("SUCCESS",
+                    f"Письмо создано. Message ID: {api_result.get('message_id', '')}")

@@ -3,7 +3,7 @@ from termcolor import colored
 
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import log
+from gmu.utils.utils import table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -20,6 +20,6 @@ def delete_message(message_id: int):
     gmu_cfg.delete()
 
     if result:
-        log("SUCCESS", f"Message {message_id} deleted successfully.")
+        table_print("SUCCESS", f"Message {message_id} deleted successfully.")
     else:
-        log("ERROR", f"Failed to delete message {message_id}.")
+        table_print("ERROR", f"Failed to delete message {message_id}.")

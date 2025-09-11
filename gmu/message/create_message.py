@@ -1,10 +1,12 @@
-import typer
-from termcolor import colored
+import logging
 
-from gmu.message.update_message import update_message
+import typer
+
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.logger import gmu_logger
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import archive_email, get_html_and_attachments, log
+from gmu.utils.utils import (archive_email, get_html_and_attachments,
+                             table_print)
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -25,26 +27,32 @@ def create_message(
     gmu_cfg = GmuConfig(path="gmu.json")
 
     if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) is not None:
-        return log("WARNING", f"Письмо уже создано. Используется ID из gmu.json. ID: {gmu_cfg.data.get('message_id', '')}")
+        gmu_logger.warning(
+            f"Email exist in Unisender! Message id: {gmu_cfg.data.get('message_id', None)}")
+        return table_print("WARNING", f"Письмо уже создано. Используется ID из gmu.json. ID: {gmu_cfg.data.get('message_id', '')}")
 
-    sender_name, sender_email, subject, html, attachments = get_html_and_attachments(
+    process_result = get_html_and_attachments(
         html_filename, images_folder, True
     )
 
-    archive_email(html_filename, html, attachments)
+    archive_email(html_filename, process_result.get(
+        'inlined_html'), process_result.get('attachments'))
 
-    result = uClient.create_email_message(
-        sender_name, sender_email, subject, html, int(
-            list_id), attachments
+    api_result = uClient.create_email_message(
+        process_result.get('sender_name'), process_result.get('sender_email'), process_result.get('subject'), process_result.get('inlined_html'), int(
+            list_id), process_result.get('attachments')
     )
+
     data = {
-        "message_id": result.get('message_id', ''),
-        "sender_name": sender_name or "",
-        "sender_email": sender_email or "",
-        "subject": subject or "",
+        "message_id": api_result.get('message_id', ''),
+        "sender_name": process_result.get('sender_name'),
+        "sender_email":  process_result.get('sender_email'),
+        "subject": process_result.get('subject'),
+        "preheader": process_result.get('preheader'),
+        "lang": process_result.get('lang'),
     }
 
     gmu_cfg.create()
     gmu_cfg.update(data)
-    log("SUCCESS",
-        f"Письмо загружено в Unisender. Message ID: {result.get('message_id', '')}")
+    table_print("SUCCESS",
+                f"Письмо загружено в Unisender. Message ID: {api_result.get('message_id', '')}")

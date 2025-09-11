@@ -10,12 +10,17 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from PIL import Image
 from premailer import transform
+from rich.console import Console
+from rich.progress import track
 from termcolor import colored
 
+from gmu.utils.logger import gmu_logger
+
 load_dotenv()
+console = Console()
 
 
-def log(status: str, message: str):
+def table_print(status: str, message: str):
     colors = {
         "INFO": "cyan",
         "WARNING": "yellow",
@@ -33,26 +38,64 @@ def log(status: str, message: str):
         )
 
 
-def extract_email_metadata_from_html(html_text: str) -> Tuple[str, str, str]:
-    """
-    Извлекает имя отправителя, email отправителя и тему письма из HTML.
-    """
+def get_sender_email(html_text: str) -> str:
     soup = BeautifulSoup(html_text, "html.parser")
-    sender_name_tag = soup.find("meta", attrs={"name": "sender-name"})
     sender_email_tag = soup.find("meta", attrs={"name": "sender-email"})
-
-    if sender_name_tag:
-        sender_name = sender_name_tag.get("content", "Unknown Sender")
-    else:
-        raise ValueError("Sender name not found in HTML")
-
     if sender_email_tag:
         sender_email = sender_email_tag.get("content", "Unknown Email")
     else:
+        gmu_logger.critical('Sender email not fount in HTML meta tags')
         raise ValueError("Sender email not found in HTML")
+    return sender_email
 
+
+def get_sender_name(html_text: str) -> str:
+    soup = BeautifulSoup(html_text, "html.parser")
+    sender_name_tag = soup.find("meta", attrs={"name": "sender-name"})
+    if sender_name_tag:
+        sender_name = sender_name_tag.get("content", "Unknown Sender")
+    else:
+        gmu_logger.critical('Sender name not fount in HTML meta tags')
+        raise ValueError("Sender name not found in HTML")
+    return sender_name
+
+
+def get_subject(html_text: str) -> str:
+    soup = BeautifulSoup(html_text, "html.parser")
     subject = soup.title.string if soup.title else "No Subject"
-    return sender_name, sender_email, subject
+    return subject
+
+
+def get_preheader(html_text: str) -> str:
+    soup = BeautifulSoup(html_text, "html.parser")
+    # Найти все скрытые <div>
+    hidden_divs = soup.find_all(
+        lambda tag: tag.name == 'div' and 'display: none' in tag.get(
+            'style', '')
+    )
+    for div in hidden_divs:
+        text = div.get_text(separator=' ', strip=True)
+
+        if text and not re.fullmatch(r'[\s\u200b\xa0&zwnj; ]+', text):
+            return text
+    return ""
+
+
+def get_lang(html_text: str) -> str:
+    soup = BeautifulSoup(html_text, "html.parser")
+    html_tag = soup.find('html')
+    if html_tag and html_tag.has_attr('lang'):
+        return html_tag['lang']
+    # В некоторых письмах lang бывает также у body/div — fallback
+    body_tag = soup.find('body')
+    if body_tag and body_tag.has_attr('lang'):
+        return body_tag['lang']
+    # Вариант: первый div с lang
+    div_lang = soup.find(lambda tag: tag.name ==
+                         'div' and tag.has_attr('lang'))
+    if div_lang:
+        return div_lang['lang']
+    return ""
 
 
 def find_images_in_html(html_text: str, replace_src: bool) -> Tuple[List[Tuple[str, Optional[int]]], BeautifulSoup]:
@@ -62,7 +105,8 @@ def find_images_in_html(html_text: str, replace_src: bool) -> Tuple[List[Tuple[s
     """
     soup = BeautifulSoup(html_text, "html.parser")
     found_images = []
-    for tag in soup.find_all("img"):
+    console.print("\n📃 Finding images in HTML")
+    for tag in track(soup.find_all("img"), description=""):
         src = tag.get("src")
         data_width = tag.get("data-width")
         width = int(data_width) if data_width and data_width.isdigit() else None
@@ -105,15 +149,19 @@ def process_images(
     Загружает изображения, конвертирует svg→png, ресайзит при необходимости.
     Возвращает: attachs (dict: имя -> байты), список svg-имен.
     """
+
     attachs: Dict[str, bytes] = {}
     svg_names: List[str] = []
     images_path = Path(images_folder)
 
-    for fname, width in images_info:
+    console.print("🖼️ Processing images")
+    for fname, width in track(images_info, description=""):
         img_file = images_path / fname
         if not img_file.exists():
-            log("WARNING",
-                f"Изображение {fname} найдено в HTML, но нет в директории {images_folder}/")
+            gmu_logger.warning(f'Image {fname} not found in {images_folder}/')
+            console.print(
+                f"[bold yellow]WARNING:[/bold yellow] Изображение {fname} не найдено в {images_folder}/"
+            )
             continue
         file_bytes = img_file.read_bytes()
         if fname.lower().endswith('.svg'):
@@ -123,28 +171,41 @@ def process_images(
                 attachs[png_name] = png_bytes
                 svg_names.append(fname)
             except Exception as e:
-                log("ERROR",
-                    f"SVG to PNG конвертация не удалась для {fname}: {e}")
+                gmu_logger.critical(f'{fname} not converted to png: {e}')
+                console.print(
+                    f"[bold red]ERROR:[/bold red] SVG to PNG конвертация не удалась для {fname}: {e}"
+                )
             continue
         if fname.lower().endswith('.gif'):
             max_gif_size = 500 * 1024  # 500 KB
             if len(file_bytes) > max_gif_size:
+                gmu_logger.warning(
+                    f'GIF {fname} is larger than 500 kb')
+                console.print(
+                    f"[bold red]EXCEPTION:[/bold red] GIF-изображение '{fname}' слишком большое: {len(file_bytes)//1024} КБ"
+                )
                 raise Exception(
-                    f"[EXCEPTION] GIF-изображение '{fname}' слишком большое: {len(file_bytes)//1024} КБ")
-            log("WARNING",
-                f"GIF-изображения не ресайзятся. Изображение '{fname}' будет пропущено.")
+                    f"[EXCEPTION] GIF-изображение '{fname}' слишком большое: {len(file_bytes)//1024} КБ"
+                )
+            gmu_logger.info(
+                f'GIF images do not resize. data-width does not work. {fname} skip')
+            console.print(
+                f"[bold yellow]WARNING:[/bold yellow] GIF-изображения не ресайзятся. Изображение '{fname}' будет пропущено."
+            )
             attachs[fname] = file_bytes
             continue
         # Ресайз, если указан data-width
-        if width is not None:
+        if width:
             try:
                 resized_bytes = resize_image(file_bytes, width)
                 attachs[fname] = resized_bytes
-                log("INFO",
-                    f"Изображение {fname} успешно ресайзено до {width}px.")
+                gmu_logger.info(f'Image {fname} successfully resized')
+
             except Exception as e:
-                log("ERROR",
-                    f"Ошибка при ресайзе изображения {fname}: {e}")
+                gmu_logger.critical(f'Error while resizing image {fname}: {e}')
+                console.print(
+                    f"[bold red]ERROR:[/bold red] Ошибка при ресайзе изображения {fname}: {e}"
+                )
                 attachs[fname] = file_bytes
         else:
             attachs[fname] = file_bytes
@@ -156,14 +217,13 @@ def replace_svg_references_in_html(soup: BeautifulSoup, svg_names: List[str]) ->
     """
     В HTML (soup) меняет src для svg-файлов на png-версии.
     """
-    for tag in soup.find_all("img"):
+    console.print("🔁 Replase .svg to .png in HTML")
+    for tag in track(soup.find_all("img"), description=""):
         src = tag.get("src")
         filename = os.path.basename(src)
         if filename in svg_names:
             tag['src'] = src.rsplit('.', 1)[0] + '.png'
-            log("INFO", f"Заменяем {src} на PNG версию.")
-        else:
-            log("INFO", f"Оставляем {src} без изменений.")
+
     return soup
 
 
@@ -237,11 +297,12 @@ def archive_email(html_filename: str, html_content: str, attachments: dict, arch
         # Пишем финальный index.html (в корень архива)
         zipf.writestr("index.html", html_content)
 
+        console.print("📦 Archiving a letter")
         # Создаем папку images в архиве и пишем туда все вложения
-        for img_name, img_bytes in attachments.items():
+        for img_name, img_bytes in track(attachments.items(), description=""):
             arcname = f"{images_folder}/{img_name}"
             zipf.writestr(arcname, img_bytes)
-    log("SUCCESS", f"Архив письма сохранен: {archive_name}")
+    table_print("SUCCESS", f"Архив письма сохранен: {archive_name}")
     return os.path.abspath(archive_name)
 
 
@@ -249,10 +310,19 @@ def get_html_and_attachments(
     html_filename: str,
     images_folder: str = "images",
     replace_src: bool = True
-) -> Tuple[str, str, str, str, Dict[str, bytes]]:
+) -> Dict:
     """
     Главная функция.
-    Возвращает мета-информацию, HTML и словарь вложений.
+    Возвращает словарь:
+    {
+        'sender_name': str,
+        'sender_email': str,
+        'subject': str,
+        'preheader': str,
+        'lang': str,
+        'attachments': dict[str:binary],
+        'inlined_html': str
+    }
     """
     if not html_filename:
         html_files = list(Path(".").glob("*.html"))
@@ -267,23 +337,33 @@ def get_html_and_attachments(
     # 1. Чтение исходного HTML
     html_text = html_file.read_text(encoding="utf-8")
 
-    # 2. Извлечение метаданных
-    sender_name, sender_email, subject = extract_email_metadata_from_html(
-        html_text)
+    sender_name = get_sender_name(html_text)
+    sender_email = get_sender_email(html_text)
+    subject = get_subject(html_text)
+    preheader = get_preheader(html_text)
+    lang = get_lang(html_text)
 
-    # 3. Поиск изображений (src и data-width), нормализация путей
+    # 2. Поиск изображений (src и data-width), нормализация путей
     images_info, soup = find_images_in_html(
         html_text, replace_src)
 
-    # 4. Работа с файлами: загрузка, ресайз, svg→png
-    attachs, svg_names = process_images(
+    # 3. Работа с файлами: загрузка, ресайз, svg→png
+    attachments, svg_names = process_images(
         images_info, images_folder=images_folder)
 
-    # 5. Подмена .svg-на .png в soup согласно тому, что реально конвертировалось
+    # 4. Подмена .svg-на .png в soup согласно тому, что реально конвертировалось
     soup = replace_svg_references_in_html(soup, svg_names)
 
-    # 6. Инлайнинг стилей
+    # 5. Инлайнинг стилей
     inlined_html = inline_css_styles(str(soup))
 
     # Возврат
-    return sender_name, sender_email, subject, inlined_html, attachs
+    return {
+        'sender_name': sender_name,
+        'sender_email': sender_email,
+        'subject': subject,
+        'preheader': preheader,
+        'lang': lang,
+        'attachments': attachments,
+        'inlined_html': inlined_html
+    }
