@@ -1,11 +1,10 @@
 
-import typer
-from termcolor import colored
+from typing import Optional
 
-from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import (archive_email, get_html_and_attachments,
-                             table_print)
+import typer
+from utils.GmuConfig import GmuConfig
+from utils.Unisender import UnisenderClient
+from utils.utils import archive_email, get_html_and_attachments, table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -13,10 +12,11 @@ uClient = UnisenderClient()
 
 @app.command(name="update")
 def update_message(
-    html_filename: str = typer.Option(
+    html_filename: Optional[str] = typer.Option(
         None, help="Имя HTML файла (по умолчанию первый .html в папке)"),
     list_id: str = typer.Option(20547119, help="ID списка рассылки"),
-    images_folder: str = typer.Option("images", help="Папка с картинками")
+    images_folder: Optional[str] = typer.Option(
+        "images", help="Папка с картинками")
 ):
     """
     Обновляет E-mail письмо по ID в Unisender. Если параметры не заданы, берёт их из gmu.json.
@@ -25,6 +25,7 @@ def update_message(
     Поэтому данная функция сначала удаляет письмо, а затем создаёт новое с теми же параметрами, но с новым ID!
     """
     gmu_cfg = GmuConfig("gmu.json")
+    gmu_cfg.load()
 
     if gmu_cfg is None or gmu_cfg.data is None or gmu_cfg.data.get("message_id", None) is None:
         table_print(
@@ -33,8 +34,6 @@ def update_message(
 
     # Удаляем старое письмо
     uClient.delete_message(gmu_cfg.data["message_id"])
-
-    gmu_cfg.create()
 
     process_result = get_html_and_attachments(
         html_filename, images_folder, True

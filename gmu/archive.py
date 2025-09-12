@@ -1,6 +1,5 @@
 import typer
-
-from gmu.utils.utils import archive_email, get_html_and_attachments
+from utils.utils import archive_email, get_html_and_attachments
 
 app = typer.Typer()
 

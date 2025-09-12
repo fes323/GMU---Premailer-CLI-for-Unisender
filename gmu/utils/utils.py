@@ -13,8 +13,7 @@ from premailer import transform
 from rich.console import Console
 from rich.progress import track
 from termcolor import colored
-
-from gmu.utils.logger import gmu_logger
+from utils.logger import gmu_logger
 
 load_dotenv()
 console = Console()

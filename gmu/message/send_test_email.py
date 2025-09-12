@@ -1,26 +1,28 @@
-import typer
-from termcolor import colored
+from typing import Optional
 
-from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import table_print
+import typer
+from utils.GmuConfig import GmuConfig
+from utils.Unisender import UnisenderClient
+from utils.utils import table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
 
 
 @app.command(name="test")
-def send_test_message(message_id: int = typer.Option(None, help="ID письма"), email: str = typer.Option(
-        None, help="Email адрес для отправки тестового письма (можно указать несколько адресов через запятую)")):
+def send_test_message(id: Optional[int] = typer.Option(None, help="Unisender Letter ID"),
+                      email: str = typer.Option(
+                          None, help="Email адрес для отправки тестового письма (можно указать несколько адресов через запятую)")
+                      ):
     """
     Метод для отправки тестового email-сообщения. Отправить можно только уже созданное письмо (например, с помощью метода
     createEmailMessage). Отправлять можно на несколько адресов, перечисленных через запятую.
     """
-    if message_id is None:
+    if id is None:
         gmu_cfg = GmuConfig("gmu.json")
         if gmu_cfg.exists():
-            message_id = gmu_cfg.load().get("message_id", None)
-        if message_id is None:
+            id = gmu_cfg.load().get("message_id", None)
+        if id is None:
             table_print(
                 "ERROR", "Не задан ID письма. Укажите его через параметр --message_id или в gmu.json.")
             return
@@ -29,7 +31,7 @@ def send_test_message(message_id: int = typer.Option(None, help="ID письма
                     "Не задан email адрес для отправки тестового письма. Укажите его через параметр --email.")
         return
 
-    result = uClient.send_test_message(message_id, email)
+    result = uClient.send_test_message(id, email)
     if result:
         table_print("SUCCESS", "Message send successfully.")
         for email, email_result in result.items():

@@ -5,9 +5,8 @@ import requests
 import typer
 from dotenv import load_dotenv
 from termcolor import colored
-
-from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.utils import archive_email, get_html_and_attachments
+from utils.GmuConfig import GmuConfig
+from utils.utils import archive_email, get_html_and_attachments
 
 load_dotenv()
 app = typer.Typer()

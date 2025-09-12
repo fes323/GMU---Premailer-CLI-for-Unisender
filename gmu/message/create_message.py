@@ -1,12 +1,10 @@
-import logging
+
 
 import typer
-
-from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.logger import gmu_logger
-from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import (archive_email, get_html_and_attachments,
-                             table_print)
+from utils.GmuConfig import GmuConfig
+from utils.logger import gmu_logger
+from utils.Unisender import UnisenderClient
+from utils.utils import archive_email, get_html_and_attachments, table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()

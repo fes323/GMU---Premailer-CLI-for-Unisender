@@ -4,14 +4,13 @@ import pathlib
 import platform
 
 import typer
+from archive import app as archive_app
+from campaign import app as campaign_app
 from dotenv import load_dotenv
-
-from .archive import app as archive_app
-from .campaign import app as campaign_app
-from .message import app as message_app
-from .pdf import app as pdf_app
-from .version import app as version_app
-from .webletter import app as webletter_app
+from message import app as message_app
+from pdf import app as pdf_app
+from version import app as version_app
+from webletter import app as webletter_app
 
 BASE_DIR = pathlib.Path(__file__).parent
 env_path = BASE_DIR / ".env"

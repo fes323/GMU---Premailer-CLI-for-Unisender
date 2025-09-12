@@ -1,11 +1,7 @@
 import typer
-from termcolor import colored
-
-from gmu.message.update_message import update_message
-from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import (archive_email, get_html_and_attachments,
-                             table_print)
+from utils.GmuConfig import GmuConfig
+from utils.Unisender import UnisenderClient
+from utils.utils import archive_email, get_html_and_attachments, table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()

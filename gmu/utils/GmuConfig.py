@@ -1,9 +1,7 @@
 import json
 import os
 
-from termcolor import colored
-
-from gmu.utils.utils import table_print
+from utils.utils import table_print
 
 
 class GmuConfig:
