@@ -1,5 +1,6 @@
 import typer
-from utils.Unisender import UnisenderClient
+
+from gmu.utils.Unisender import UnisenderClient
 
 app = typer.Typer()
 uClient = UnisenderClient()

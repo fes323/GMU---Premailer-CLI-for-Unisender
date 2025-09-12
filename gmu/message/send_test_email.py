@@ -1,9 +1,10 @@
 from typing import Optional
 
 import typer
-from utils.GmuConfig import GmuConfig
-from utils.Unisender import UnisenderClient
-from utils.utils import table_print
+
+from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.utils import table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
