@@ -3,6 +3,7 @@ from typing import Optional
 
 import typer
 
+from gmu.utils import HTMLprocessor
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.Unisender import UnisenderClient
 from gmu.utils.utils import (archive_email, get_html_and_attachments,
@@ -26,7 +27,7 @@ def update_message(
     ВАЖНО: Unisender не поддерживает обновление письма, если картинки были подключены через URL.
     Поэтому данная функция сначала удаляет письмо, а затем создаёт новое с теми же параметрами, но с новым ID!
     """
-    gmu_cfg = GmuConfig("gmu.json")
+    gmu_cfg = GmuConfig()
     gmu_cfg.load()
 
     if gmu_cfg is None or gmu_cfg.data is None or gmu_cfg.data.get("message_id", None) is None:
@@ -37,9 +38,9 @@ def update_message(
     # Удаляем старое письмо
     uClient.delete_message(gmu_cfg.data["message_id"])
 
-    process_result = get_html_and_attachments(
+    process_result = HTMLprocessor(
         html_filename, images_folder, True
-    )
+    ).process()
 
     archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))
@@ -55,6 +56,6 @@ def update_message(
         "sender_email":  process_result.get('sender_email'),
         "subject": process_result.get('subject'),
         "preheader": process_result.get('preheader'),
-        "lang": process_result.get('lang'),
+        "language": process_result.get('language'),
     }
     gmu_cfg.update(data)

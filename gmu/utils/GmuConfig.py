@@ -1,7 +1,7 @@
 import json
 import os
 
-from utils.utils import table_print
+from gmu.utils.utils import table_print
 
 
 class GmuConfig:

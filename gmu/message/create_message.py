@@ -2,11 +2,11 @@
 
 import typer
 
+from gmu.utils import HTMLprocessor
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.logger import gmu_logger
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import (archive_email, get_html_and_attachments,
-                             table_print)
+from gmu.utils.utils import archive_email, table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -31,9 +31,8 @@ def create_message(
             f"Email exist in Unisender! Message id: {gmu_cfg.data.get('message_id', None)}")
         return table_print("WARNING", f"Письмо уже создано. Используется ID из gmu.json. ID: {gmu_cfg.data.get('message_id', '')}")
 
-    process_result = get_html_and_attachments(
-        html_filename, images_folder, True
-    )
+    process_result = HTMLprocessor(
+        html_filename, images_folder, True).process()
 
     archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))
@@ -49,7 +48,7 @@ def create_message(
         "sender_email":  process_result.get('sender_email'),
         "subject": process_result.get('subject'),
         "preheader": process_result.get('preheader'),
-        "lang": process_result.get('lang'),
+        "language": process_result.get('language'),
     }
 
     gmu_cfg.create()

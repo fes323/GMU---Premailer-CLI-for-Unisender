@@ -15,7 +15,7 @@ from gmu.webletter import app as webletter_app
 
 BASE_DIR = pathlib.Path(__file__).parent
 env_path = BASE_DIR / ".env"
-
+APP_NAME = "gmu"
 
 if not env_path.exists():
     # Если не нашли .env в BASE_DIR, ищем в профиле пользователя
@@ -48,3 +48,7 @@ app.add_typer(pdf_app)
 app.add_typer(campaign_app, name="campaign")
 app.add_typer(message_app, name="message")
 app.add_typer(webletter_app, name="wl")
+
+
+if __name__ == "__main__":
+    app()

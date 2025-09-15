@@ -6,8 +6,9 @@ import typer
 from dotenv import load_dotenv
 from termcolor import colored
 
+from gmu.utils import HTMLprocessor
 from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.utils import archive_email, get_html_and_attachments
+from gmu.utils.utils import archive_email
 
 load_dotenv()
 app = typer.Typer()
@@ -22,9 +23,9 @@ def deploy_to_wl():
     if not gmu_cfg.exists():
         gmu_cfg.create()
 
-    process_result = get_html_and_attachments(
-        html_filename, images_folder, True
-    )
+    process_result = HTMLprocessor(
+        html_filename, images_folder, False
+    ).process()
 
     arhchive_path = archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))

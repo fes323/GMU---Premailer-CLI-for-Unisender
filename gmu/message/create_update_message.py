@@ -1,5 +1,6 @@
 import typer
 
+from gmu.utils import HTMLprocessor
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.Unisender import UnisenderClient
 from gmu.utils.utils import (archive_email, get_html_and_attachments,
@@ -21,9 +22,9 @@ def create_or_update_message(
     Если файл конфигурации существует, предлагает обновить или пересоздать.
     """
 
-    process_result = get_html_and_attachments(
+    process_result = HTMLprocessor(
         html_filename, images_folder, True
-    )
+    ).process()
 
     archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))
@@ -33,10 +34,10 @@ def create_or_update_message(
         "sender_email":  process_result.get('sender_email'),
         "subject": process_result.get('subject'),
         "preheader": process_result.get('preheader'),
-        "lang": process_result.get('lang'),
+        "language": process_result.get('lang'),
     }
 
-    gmu_cfg = GmuConfig(path="gmu.json")
+    gmu_cfg = GmuConfig()
 
     # Если gmu.json существует, то обновляем
     if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) is not None:
