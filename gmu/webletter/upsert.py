@@ -6,9 +6,9 @@ import typer
 from dotenv import load_dotenv
 from termcolor import colored
 
-from gmu.utils import HTMLprocessor
+from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.utils import archive_email
+from gmu.utils.HTMLProcessor import HTMLProcessor
 
 load_dotenv()
 app = typer.Typer()
@@ -23,9 +23,9 @@ def deploy_to_wl():
     if not gmu_cfg.exists():
         gmu_cfg.create()
 
-    process_result = HTMLprocessor(
-        html_filename, images_folder, False
-    ).process()
+    htmlProcessor = HTMLProcessor(
+        html_filename, images_folder, False)
+    process_result = htmlProcessor.process()
 
     arhchive_path = archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))
@@ -45,16 +45,17 @@ def deploy_to_wl():
     cfg_data = gmu_cfg.load()
     if cfg_data.get("webletter_id"):
         result = requests.put(
-            str(os.environ.get("WL_ENDPOINT")),
+            str(os.environ.get("WL_ENDPOINT") + cfg_data.get('webletter_id')),
             headers=headers,
             files=files
         )
     else:
         result = requests.post(
-            str(os.environ.get("WL_ENDPOINT")),
+            str(os.environ.get("WL_ENDPOINT") + 'upload'),
             headers=headers,
             files=files
         )
+    print(result.text)
     if 'data' in result.json():
         resData = result.json().get("data")
         cfg_data["webletter_id"] = resData.get("id", "")

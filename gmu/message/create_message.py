@@ -1,12 +1,11 @@
-
-
 import typer
 
-from gmu.utils import HTMLprocessor
+from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.helpers import table_print
+from gmu.utils.HTMLProcessor import HTMLProcessor
 from gmu.utils.logger import gmu_logger
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import archive_email, table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -18,21 +17,32 @@ def create_message(
     html_filename: str = typer.Option(
         None, help="Имя HTML файла (по умолчанию первый .html в папке)"),
     images_folder: str = typer.Option("images", help="Папка с картинками"),
+    force: bool = typer.Option(False, help="Skip delete message stage")
 ):
     """
     Создает E-mail письмо в Unisender. В буфер обмена помещает ID созданного письма.
     Если файл конфигурации существует, предлагает обновить или пересоздать.
     """
 
-    gmu_cfg = GmuConfig(path="gmu.json")
+    gmu_cfg = GmuConfig()
 
-    if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) is not None:
-        gmu_logger.warning(
-            f"Email exist in Unisender! Message id: {gmu_cfg.data.get('message_id', None)}")
-        return table_print("WARNING", f"Письмо уже создано. Используется ID из gmu.json. ID: {gmu_cfg.data.get('message_id', '')}")
+    if force == False:
+        if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) != None:
+            gmu_logger.warning(
+                f"Email exist in Unisender! Message id: {gmu_cfg.data.get('message_id', None)}")
+            return table_print("WARNING", f"Email exist in Unisender! Message id: {gmu_cfg.data.get('message_id', None)}")
 
-    process_result = HTMLprocessor(
-        html_filename, images_folder, True).process()
+    htmlProcessor = HTMLProcessor(
+        html_filename, images_folder, True)
+    process_result = htmlProcessor.process()
+
+    required_fields = ['sender_name', 'sender_email', 'subject']
+    missing_fields = [
+        field for field in required_fields if process_result.get(field) is None]
+
+    if missing_fields:
+        raise ValueError(
+            f'Missing required fields: {", ".join(missing_fields)}')
 
     archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))

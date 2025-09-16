@@ -1,6 +1,7 @@
 import typer
 
-from gmu.utils.utils import archive_email, get_html_and_attachments
+from gmu.utils.archive import archive_email
+from gmu.utils.HTMLProcessor import HTMLProcessor
 
 app = typer.Typer()
 
@@ -11,8 +12,9 @@ def archive(
         None, help="Имя HTML файла (по умолчанию первый .html в папке)"),
     images_folder: str = typer.Option("images", help="Папка с картинками"),
 ):
-    sender_name, sender_email, subject, html, attachments = get_html_and_attachments(
-        html_filename, images_folder, True
-    )
+    htmlProcessor = HTMLProcessor(
+        html_filename, images_folder, True)
+    process_result = htmlProcessor.process()
 
-    archive_email(html_filename, html, attachments)
+    archive_email(html_filename, process_result.get(
+        'inlined_html'), process_result.get('attachments'))

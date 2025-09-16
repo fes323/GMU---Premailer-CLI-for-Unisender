@@ -1,10 +1,10 @@
 import typer
 
-from gmu.utils import HTMLprocessor
+from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.helpers import table_print
+from gmu.utils.HTMLProcessor import HTMLProcessor
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import (archive_email, get_html_and_attachments,
-                             table_print)
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -16,15 +16,16 @@ def create_or_update_message(
     html_filename: str = typer.Option(
         None, help="Имя HTML файла (по умолчанию первый .html в папке)"),
     images_folder: str = typer.Option("images", help="Папка с картинками"),
+    force: bool = typer.Option(False, help="Skip delete stage")
 ):
     """
     Создает E-mail письмо в Unisender. В буфер обмена помещает ID созданного письма.
     Если файл конфигурации существует, предлагает обновить или пересоздать.
     """
 
-    process_result = HTMLprocessor(
-        html_filename, images_folder, True
-    ).process()
+    htmlProcessor = HTMLProcessor(
+        html_filename, images_folder, True)
+    process_result = htmlProcessor.process()
 
     archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))
@@ -42,8 +43,9 @@ def create_or_update_message(
     # Если gmu.json существует, то обновляем
     if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) is not None:
 
-        # 1. Удаляем существующее письмо
-        uClient.delete_message(gmu_cfg.data.get("message_id", None))
+        if force == False:
+            # 1. Удаляем существующее письмо
+            uClient.delete_message(gmu_cfg.data.get("message_id", None))
 
         # 2. Создаем новое письмо
         api_result = uClient.create_email_message(

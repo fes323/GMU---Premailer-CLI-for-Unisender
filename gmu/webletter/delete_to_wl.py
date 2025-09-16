@@ -6,7 +6,7 @@ import typer
 from dotenv import load_dotenv
 
 from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.utils import table_print
+from gmu.utils.helpers import table_print
 
 load_dotenv()
 app = typer.Typer()

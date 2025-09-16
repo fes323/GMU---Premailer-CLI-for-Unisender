@@ -20,7 +20,7 @@ console = Console()
 
 class HTMLProcessor:
     def __init__(self, html_filename: str, images_folder: str = "images", replace_src: bool = True):
-        self.html_file = Path(html_filename)
+        self.html_filename = html_filename
         self.images_folder = images_folder
         self.replace_src = replace_src
 
@@ -33,20 +33,20 @@ class HTMLProcessor:
         self.language = None
         self.images_info = []
         self.attachments = {}
-        self.svg_names = {}
+        self.svg_names = []
         self.result_html = None
 
-        self._load_html(html_filename)
+        self._load_html()
 
     def _load_html(self):
-        if not self.html_file:
+        if not self.html_filename:
             html_files = list(Path(".").glob("*.html"))
             if not html_files:
                 raise FileNotFoundError(
                     "HTML file not found in this directory")
             html_file = html_files[0]
         else:
-            html_file = Path(html_file)
+            html_file = Path(self.html_filename)
             if not html_file.exists():
                 raise FileNotFoundError(f"File {html_file} not found")
 
@@ -118,7 +118,8 @@ class HTMLProcessor:
                 data_width) if data_width and data_width.isdigit() else None
             if src:
                 tag['src'] = Path(
-                    src).name if self.replace_src else f"images/{Path(src).name}"
+                    src).name if self.replace_src == True else f"images/{Path(src).name}"
+
                 found_images.append(
                     (Path(src).name, width))
 
@@ -143,7 +144,7 @@ class HTMLProcessor:
                 return output.getvalue()
 
         for fname, width in track(self.images_info, description=""):
-            img_file = self.images_folder / fname
+            img_file = Path(self.images_folder + "/" + fname)
             if not img_file.exists():
                 gmu_logger.warning(
                     f'Image {fname} not found in {self.images_folder}/')
@@ -206,10 +207,11 @@ class HTMLProcessor:
             filename = os.path.basename(src)
             if filename in self.svg_names:
                 tag['src'] = src.rsplit('.', 1)[0] + '.png'
+        self.soup = self.soup
 
     def _inline_css(self):
 
-        def __extract_conditional_comments(html: str) -> Tuple[str, Dict[str, str]]:
+        def __extract_conditional_comments() -> Tuple[str, Dict[str, str]]:
             """
             Ищет условные комментарии и заменяет их на уникальные placeholders.
             """
@@ -221,7 +223,7 @@ class HTMLProcessor:
                 key = f"<!--COND_COMMENT_{len(comments)}-->"
                 comments[key] = match.group(0)
                 return key
-            modified_html = pattern.sub(replacer, html)
+            modified_html = pattern.sub(replacer, str(self.soup))
             return modified_html, comments
 
         def __restore_conditional_comments(html: str, comments: Dict[str, str]) -> str:
@@ -233,8 +235,7 @@ class HTMLProcessor:
             return html
 
         # 1. Временно прячем условные комментарии
-        modified_html, comments = __extract_conditional_comments(
-            self.html_file)
+        modified_html, comments = __extract_conditional_comments()
         # 2. Инлайнинг
         inlined_html = transform(
             modified_html,
@@ -251,7 +252,7 @@ class HTMLProcessor:
 
     def process(self):
         """Основной метод, запускающий весь пайплайн обработки."""
-
+        self._get_soup()
         self._extract_sender_name()
         self._extract_sender_mail()
         self._extract_subject()

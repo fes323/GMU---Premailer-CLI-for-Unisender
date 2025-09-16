@@ -3,11 +3,11 @@ from typing import Optional
 
 import typer
 
-from gmu.utils import HTMLprocessor
+from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.helpers import table_print
+from gmu.utils.HTMLProcessor import HTMLProcessor
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import (archive_email, get_html_and_attachments,
-                             table_print)
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -38,9 +38,9 @@ def update_message(
     # Удаляем старое письмо
     uClient.delete_message(gmu_cfg.data["message_id"])
 
-    process_result = HTMLprocessor(
-        html_filename, images_folder, True
-    ).process()
+    htmlProcessor = HTMLProcessor(
+        html_filename, images_folder, True)
+    process_result = htmlProcessor.process()
 
     archive_email(html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))

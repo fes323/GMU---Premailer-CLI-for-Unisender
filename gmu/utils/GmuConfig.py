@@ -1,7 +1,7 @@
 import json
 import os
 
-from gmu.utils.utils import table_print
+from gmu.utils.helpers import table_print
 
 
 class GmuConfig:
@@ -12,7 +12,7 @@ class GmuConfig:
               Если data передан, то он сохранится после вызова save().
         """
         self.path = path
-        self._data = data.copy() if data is not None else None
+        self._data = data.copy() if data != None else None
 
     def exists(self):
         return os.path.exists(self.path)
@@ -27,9 +27,9 @@ class GmuConfig:
 
     def save(self, data=None):
         """Сохранить данные (или свои внутренние, если data не передан) в файл."""
-        if data is not None:
+        if data != None:
             self._data = data.copy()
-        if self._data is None:
+        if self._data == None:
             raise ValueError("Нет данных для сохранения!")
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=4)
@@ -48,23 +48,23 @@ class GmuConfig:
                 table_print(
                     "WARNING", "Создание нового файла конфигурации отменено.")
                 return False
-        if data is not None:
+        if data != None:
             self._data = data.copy()
-        elif self._data is None:
+        elif self._data == None:
             # Шаблон по умолчанию
             self._data = {
-                "message_id": "",
-                "message_url": "",
-                "sender_name": "",
-                "sender_email": "",
-                "subject": "",
-                "preheader": "",
-                "webletter_id": "",
-                "webletter_url": "",
-                "lang": "",
-                "size": "",
-                "created": "",
-                "updated": ""
+                "message_id": None,
+                "message_url": None,
+                "sender_name": None,
+                "sender_email": None,
+                "subject": None,
+                "preheader": None,
+                "webletter_id": None,
+                "webletter_url": None,
+                "lang": None,
+                "size": None,
+                "created": None,
+                "updated": None
             }
         self.save()
         table_print("SUCCESS",
@@ -104,7 +104,7 @@ class GmuConfig:
         """
         Получить текущие данные (если не загружены — загрузить с диска).
         """
-        if self._data is None:
+        if self._data == None:
             return self.load()
         return self._data
 

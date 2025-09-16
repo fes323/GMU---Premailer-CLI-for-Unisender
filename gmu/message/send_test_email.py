@@ -3,8 +3,8 @@ from typing import Optional
 import typer
 
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.helpers import table_print
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -20,7 +20,7 @@ def send_test_message(id: Optional[int] = typer.Option(None, help="Unisender Let
     createEmailMessage). Отправлять можно на несколько адресов, перечисленных через запятую.
     """
     if id is None:
-        gmu_cfg = GmuConfig("gmu.json")
+        gmu_cfg = GmuConfig()
         if gmu_cfg.exists():
             id = gmu_cfg.load().get("message_id", None)
         if id is None:

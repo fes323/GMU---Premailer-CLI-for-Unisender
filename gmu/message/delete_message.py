@@ -3,8 +3,8 @@ from typing import Optional
 import typer
 
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.helpers import table_print
 from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.utils import table_print
 
 app = typer.Typer()
 uClient = UnisenderClient()
@@ -15,11 +15,12 @@ def delete_message(id: Optional[int] = typer.Option(None, help="By default, it d
     """
     Удаляет E-mail письмо по ID.
     """
-    gmu_cfg = GmuConfig()
-    gmu_cfg.load()
 
-    if gmu_cfg.exists() and id == None:
-        id = gmu_cfg.get('message_id')
+    gmu_cfg = GmuConfig()
+    gmu_data = gmu_cfg.load()
+
+    if gmu_data.get('message_id') and id == None:
+        id = gmu_data.get('message_id')
 
     if id:
         result = uClient.delete_message(id)
@@ -28,7 +29,7 @@ def delete_message(id: Optional[int] = typer.Option(None, help="By default, it d
 
     if result:
         table_print("SUCCESS", f"Message {id} deleted successfully.")
-        gmu_cfg['message_id'] = ""
-        gmu_cfg.save()
+        gmu_data['message_id'] = None
+        gmu_cfg.update(gmu_data)
     else:
         table_print("ERROR", f"Failed to delete message {id}.")
