@@ -16,7 +16,7 @@ cd  GMU---Premailer-CLI-for-Unisender
 ```   
 3. Установить зависимости   
 ```bash
-pip install -r requariments.txt
+poetry install
 ```
 4. Собрать установщик    
 ```bash 
@@ -96,5 +96,13 @@ gmu wl upsert
 gmu wl delete
 ```
 
-
+## Дополнительные возможности
+1. Создание PDF Документа (только Windows)
+```bash
+gmu pdf
+```
+2. Создание архива
+```bash
+gmu archive
+```
 
