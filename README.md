@@ -2,7 +2,7 @@
 GMU позволяет собрать архив E-mail рассылки для загрузки в сервис рассылок (Unisender/SendSay).
 Есть поддержка загрузки писем в Unisender по API (```gmu message create/update/delete```).
 
-![CLI working](https://my-bucket.ru/upload/process.gif)
+![CLI working](https://my-bucket.ru/upload/process_1709.gif)
 
 ## 🤖 Установка
 Для установки CLI необходимо установить Python >= 3.6 и пакетный менеджер pip.
@@ -110,5 +110,6 @@ gmu pdf
 ```bash
 gmu archive
 ```
+
 
 
