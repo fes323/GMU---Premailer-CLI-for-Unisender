@@ -8,6 +8,7 @@ from termcolor import colored
 
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.helpers import table_print
 from gmu.utils.HTMLProcessor import HTMLProcessor
 
 load_dotenv()
@@ -55,12 +56,11 @@ def deploy_to_wl():
             headers=headers,
             files=files
         )
-    print(result.text)
     if 'data' in result.json():
         resData = result.json().get("data")
         cfg_data["webletter_id"] = resData.get("id", "")
 
     gmu_cfg.update(cfg_data)
 
-    print("SUCCESS",
-          f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")
+    table_print("SUCCESS",
+                f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")

@@ -119,10 +119,8 @@ class HTMLProcessor:
             if src:
                 tag['src'] = Path(
                     src).name if self.replace_src == True else f"images/{Path(src).name}"
-
                 found_images.append(
                     (Path(src).name, width))
-
         self.images_info = found_images
 
     def _process_attachments(self):
@@ -209,6 +207,21 @@ class HTMLProcessor:
                 tag['src'] = src.rsplit('.', 1)[0] + '.png'
         self.soup = self.soup
 
+    def _remove_spaces_from_style(self):
+        def __optimize_style(style_string):
+            """Оптимизирует CSS стили, удаляя лишние пробелы"""
+            # Удаляем пробелы вокруг двоеточий
+            style_string = re.sub(r'\s*:\s*', ':', style_string)
+            # Удаляем пробелы вокруг точек с запятой
+            style_string = re.sub(r'\s*;\s*', ';', style_string)
+            # Удаляем пробелы в начале и конце
+            style_string = style_string.strip()
+            # Можно не убирать ; в конце!
+            return style_string
+        all_tags_with_style = self.soup.find_all(style=True)
+        for tag in all_tags_with_style:
+            tag['style'] = __optimize_style(tag['style'])
+
     def _inline_css(self):
 
         def __extract_conditional_comments() -> Tuple[str, Dict[str, str]]:
@@ -262,6 +275,7 @@ class HTMLProcessor:
         self._find_images()
         self._process_attachments()
         self._replace_svg_to_png()
+        self._remove_spaces_from_style()
         self._inline_css()
 
         return {
