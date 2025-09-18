@@ -124,21 +124,37 @@ class HTMLProcessor:
         self.images_info = found_images
 
     def _process_attachments(self):
-
         console.print("🖼️ Processing images")
 
-        def resize_image(image_bytes: bytes, target_width: int) -> bytes:
+        def __resize_and_compress_image(image_bytes: bytes, target_width: int = None, output_format: str = None) -> bytes:
             """
-            Изменяет размер изображения до заданной ширины с сохранением пропорций.
+            Изменяет размер изображения до заданной ширины с сохранением пропорций и сжимает при сохранении.
             """
             with Image.open(BytesIO(image_bytes)) as img:
-                w_percent = (target_width / float(img.width))
-                target_height = int((float(img.height) * float(w_percent)))
-                img = img.resize((target_width, target_height),
-                                 Image.Resampling.LANCZOS)
+                # Приведем все изображения к RGB (или PNG-моду), если требуется
+                img_format = output_format if output_format else (
+                    img.format if img.format else 'PNG')
+                save_params = {}
+
+                # Настройки сжатия
+                if img_format.upper() == "JPEG":
+                    save_params['quality'] = 75
+                    save_params['optimize'] = True
+                    if img.mode in ('RGBA', 'LA'):
+                        img = img.convert('RGB')
+                elif img_format.upper() == "PNG":
+                    save_params['optimize'] = True
+                    save_params['compress_level'] = 9
+
+                # Ресайз, если указан
+                if target_width and img.width > target_width:
+                    w_percent = (target_width / float(img.width))
+                    target_height = int((float(img.height) * float(w_percent)))
+                    img = img.resize(
+                        (target_width, target_height), Image.Resampling.LANCZOS)
+
                 output = BytesIO()
-                img_format = img.format if img.format else 'PNG'
-                img.save(output, format=img_format)
+                img.save(output, format=img_format, **save_params)
                 return output.getvalue()
 
         for fname, width in track(self.images_info, description=""):
@@ -147,27 +163,37 @@ class HTMLProcessor:
                 gmu_logger.warning(
                     f'Image {fname} not found in {self.images_folder}/')
                 console.print(
-                    f"[bold yellow]WARNING:[/bold yellow] Изображение {fname} не найдено в {self.images_folder}/"
-                )
+                    f"[bold yellow]WARNING:[/bold yellow] Изображение {fname} не найдено в {self.images_folder}/")
                 continue
+
             file_bytes = img_file.read_bytes()
+
+            # 1. SVG: конвертируем → ресайзим → сжимаем
             if fname.lower().endswith('.svg'):
                 try:
                     png_bytes = cairosvg.svg2png(bytestring=file_bytes)
                     png_name = fname.rsplit('.', 1)[0] + '.png'
+                    # делаем ресайз+сжатие PNG
+                    if width:
+                        png_bytes = __resize_and_compress_image(
+                            png_bytes, target_width=width, output_format='PNG')
+                    else:
+                        png_bytes = __resize_and_compress_image(
+                            png_bytes, output_format='PNG')
+
                     self.attachments[png_name] = png_bytes
                     self.svg_names.append(fname)
                 except Exception as e:
                     gmu_logger.critical(f'{fname} not converted to png: {e}')
                     console.print(
-                        f"[bold red]ERROR:[/bold red] SVG to PNG конвертация не удалась для {fname}: {e}"
-                    )
+                        f"[bold red]ERROR:[/bold red] SVG to PNG конвертация не удалась для {fname}: {e}")
                 continue
+
+            # 2. GIF: проверяем размер, компрессию не делаем (Pillow плохо оптимизирует gif)
             if fname.lower().endswith('.gif'):
                 max_gif_size = 500 * 1024  # 500 KB
                 if len(file_bytes) > max_gif_size:
-                    gmu_logger.warning(
-                        f'GIF {fname} is larger than 500 kb')
+                    gmu_logger.warning(f'GIF {fname} is larger than 500 kb')
                     console.print(
                         f"[bold red]EXCEPTION:[/bold red] GIF-изображение '{fname}' слишком большое: {len(file_bytes)//1024} КБ"
                     )
@@ -181,21 +207,32 @@ class HTMLProcessor:
                 )
                 self.attachments[fname] = file_bytes
                 continue
-            # Ресайз, если указан data-width
-            if width:
-                try:
-                    resized_bytes = resize_image(file_bytes, width)
-                    self.attachments[fname] = resized_bytes
-                    gmu_logger.info(f'Image {fname} successfully resized')
 
-                except Exception as e:
-                    gmu_logger.critical(
-                        f'Error while resizing image {fname}: {e}')
-                    console.print(
-                        f"[bold red]ERROR:[/bold red] Ошибка при ресайзе изображения {fname}: {e}"
-                    )
-                    self.attachments[fname] = file_bytes
-            else:
+            # 3. Остальные: ресайз + компрессия
+            try:
+                # Определим формат по расширению
+                ext = fname.split('.')[-1].lower()
+                if ext in ('jpg', 'jpeg'):
+                    img_format = 'JPEG'
+                elif ext == 'png':
+                    img_format = 'PNG'
+                else:
+                    img_format = None  # для Pillow auto-select
+
+                # Ресайз, если есть width, иначе только сжатие
+                processed_bytes = __resize_and_compress_image(
+                    file_bytes,
+                    target_width=width if width else None,
+                    output_format=img_format
+                )
+                self.attachments[fname] = processed_bytes
+                gmu_logger.info(
+                    f'Image {fname} successfully resized and compressed')
+            except Exception as e:
+                gmu_logger.critical(
+                    f'Error while processing image {fname}: {e}')
+                console.print(
+                    f"[bold red]ERROR:[/bold red] Ошибка при обработке изображения {fname}: {e}")
                 self.attachments[fname] = file_bytes
 
     def _replace_svg_to_png(self):
