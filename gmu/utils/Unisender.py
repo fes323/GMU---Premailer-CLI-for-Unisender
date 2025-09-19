@@ -234,7 +234,11 @@ class UnisenderClient:
         message_id: int,
         start_time: str,
         track_read: int = 1,
-        track_links: int = 1
+        track_links: int = 1,
+        track_ga: int = 1,
+        ga_medium: str = 'email',
+        ga_source: str = 'Unisender',
+        ga_campaign: str = 'gefera'
     ) -> Union[Literal['error'], Dict[str, Union[str, int]]]:
         """
         Создает E-mail кампанию в Unisender. Формат времени: YYYY-MM-DD HH:MM
@@ -243,7 +247,11 @@ class UnisenderClient:
             'message_id': message_id,
             'start_time': start_time,
             'track_read': track_read,
-            'track_links': track_links
+            'track_links': track_links,
+            'track_ga': track_ga,
+            'ga_medium': ga_medium,
+            'ga_source': ga_source,
+            'ga_campaign': ga_campaign
         }
         result = self.u_request('createCampaign', params)
         return result
