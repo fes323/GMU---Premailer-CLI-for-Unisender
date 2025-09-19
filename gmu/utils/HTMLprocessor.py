@@ -126,7 +126,7 @@ class HTMLProcessor:
     def _process_attachments(self):
         console.print("🖼️ Processing images")
 
-        def __resize_and_compress_image(image_bytes: bytes, target_width: int = None, output_format: str = None, output_bits: int = 8) -> bytes:
+        def __resize_and_compress_image(image_bytes: bytes, target_width: int = None, output_format: str = None) -> bytes:
             """
             Изменяет размер изображения до заданной ширины с сохранением пропорций и сжимает при сохранении.
             """
@@ -137,35 +137,8 @@ class HTMLProcessor:
                 save_params = {}
 
                 # Приводим изображение к нужной битности
-                if output_bits == 8:
-                    # Для цветных фото — 'RGB', для ч/б — 'L'
-                    img = img.convert('RGB')
-                elif output_bits == 16:
-                    try:
-                        # Только для PNG/TIFF и Pillow>=9.1 (16-битные каналы). Для цветных понадобится numpy.
-                        import numpy as np
-                        arr = np.array(img)
-                        if arr.ndim == 2:
-                            # grayscale
-                            mode = 'I;16'
-                        elif arr.ndim == 3 and arr.shape[2] == 3:
-                            # RGB
-                            mode = 'I;16'
-                        elif arr.ndim == 3 and arr.shape[2] == 4:
-                            # RGBA
-                            mode = 'I;16'
-                        else:
-                            raise ValueError(
-                                'Неподдерживаемый формат для 16 бит')
-
-                        # Нормализация к 16 битам
-                        if arr.dtype != np.uint16:
-                            arr = (arr.astype(np.float32) /
-                                   255.0 * 65535).astype(np.uint16)
-                        img = Image.fromarray(arr, 'I;16')
-                    except ImportError:
-                        raise RuntimeError(
-                            "Для 16-битной обработки требуется numpy")
+                img = img.convert(img.mode if img.mode in (
+                    'RGBA', 'LA') else 'RGB')
 
                 # Сжатие
                 if img_format.upper() == "JPEG":
@@ -176,8 +149,6 @@ class HTMLProcessor:
                 elif img_format.upper() == "PNG":
                     save_params['optimize'] = True
                     save_params['compress_level'] = 9
-                    if output_bits == 16:
-                        save_params['bits'] = 16
 
                 # Изменение размера
                 if target_width and img.width > target_width:
