@@ -8,7 +8,7 @@ from gmu.utils.Unisender import UnisenderClient
 
 app = typer.Typer()
 uClient = UnisenderClient()
-gmu_cfg = GmuConfig.load()
+gmu_cfg = GmuConfig()
 
 
 @app.command(name="create")
@@ -28,7 +28,7 @@ def create_campaign(
     """
     if message_id == None:
         try:
-            message_id = gmu_cfg.get('message_id', None)
+            message_id = gmu_cfg.load().get('message_id', None)
             if message_id:
                 if validate_datetime_string(start_time, '%Y-%m-%d HH:MM'):
                     uClient.create_campaign(message_id=message_id, start_time=start_time,

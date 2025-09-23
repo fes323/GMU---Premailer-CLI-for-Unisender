@@ -27,9 +27,9 @@ class GmuConfig:
 
     def save(self, data=None):
         """Сохранить данные (или свои внутренние, если data не передан) в файл."""
-        if data != None:
+        if data is not None:
             self._data = data.copy()
-        if self._data == None:
+        if self._data is None:
             raise ValueError("Нет данных для сохранения!")
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=4)
@@ -41,16 +41,17 @@ class GmuConfig:
         data: словарь с параметрами письма. Если не передан — пробует self._data.
         """
         if self.exists():
-            answer = table_print("INPUT",
-                                 "Создать новый файл конфигурации и письмо в Unisender? (Y/N): "
-                                 ).strip().lower()
+            answer = table_print(
+                "INPUT",
+                "Создать новый файл конфигурации и письмо в Unisender? (Y/N): "
+            ).strip().lower()
             if answer != 'y':
                 table_print(
                     "WARNING", "Создание нового файла конфигурации отменено.")
                 return False
-        if data != None:
+        if data is not None:
             self._data = data.copy()
-        elif self._data == None:
+        elif self._data is None:
             # Шаблон по умолчанию
             self._data = {
                 "message_id": None,
@@ -67,26 +68,33 @@ class GmuConfig:
                 "updated": None
             }
         self.save()
-        table_print("SUCCESS",
-                    f"Новый файл конфигурации {self.path} создан.")
+        table_print("SUCCESS", f"Новый файл конфигурации {self.path} создан.")
         return True
 
     def update(self, data=None):
         """
         Обновить существующий файл новыми значениями из data (или self._data).
+        ВАЖНО: при обновлении мы делаем слияние: прежние поля сохраняются,
+        а новые перезаписывают только соответствующие ключи.
         """
         if not self.exists():
             table_print(
                 "ERROR", f"Файл {self.path} не найден. Обновление невозможно.")
             return False
-        old_data = self.load()
-        if data is not None:
-            self._data = data.copy()
-        if self._data != old_data:
-            self.save()
+
+        old_data = self.load()  # загрузили текущие данные из файла
+        # Если data не передано, берем текущее состояние self._data (или пустой словарь)
+        if data is None:
+            data = self._data or {}
+
+        # Мерджим: новое = старое + новые ключи
+        new_data = {**old_data, **data}
+
+        if new_data != old_data:
+            self.save(new_data)
         else:
-            table_print("INFO",
-                        "Данные в JSON не изменились. Обновление не требуется.")
+            table_print(
+                "INFO", "Данные в JSON не изменились. Обновление не требуется.")
         return True
 
     def delete(self):
@@ -95,8 +103,8 @@ class GmuConfig:
             table_print("SUCCESS", f"Файл {self.path} удален.")
             return True
         else:
-            table_print("WARNING",
-                        f"Файл {self.path} не найден. Удаление не требуется.")
+            table_print(
+                "WARNING", f"Файл {self.path} не найден. Удаление не требуется.")
             return False
 
     @property
@@ -104,7 +112,7 @@ class GmuConfig:
         """
         Получить текущие данные (если не загружены — загрузить с диска).
         """
-        if self._data == None:
+        if self._data is None:
             return self.load()
         return self._data
 

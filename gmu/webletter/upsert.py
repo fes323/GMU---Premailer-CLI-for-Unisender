@@ -25,7 +25,7 @@ def deploy_to_wl():
         gmu_cfg.create()
 
     htmlProcessor = HTMLProcessor(
-        html_filename, images_folder, False)
+        html_filename, images_folder, False, False)
     process_result = htmlProcessor.process()
 
     arhchive_path = archive_email(html_filename, process_result.get(
