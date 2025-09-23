@@ -33,7 +33,7 @@ def create_message(
             return table_print("WARNING", f"Email exist in Unisender! Message id: {gmu_cfg.data.get('message_id', None)}")
 
     htmlProcessor = HTMLProcessor(
-        html_filename, images_folder, True)
+        html_filename, images_folder, True, True)
     process_result = htmlProcessor.process()
 
     required_fields = ['sender_name', 'sender_email', 'subject']
@@ -61,7 +61,10 @@ def create_message(
         "language": process_result.get('language'),
     }
 
-    gmu_cfg.create()
-    gmu_cfg.update(data)
+    if gmu_cfg.exists():
+        gmu_cfg.update(data)
+    else:
+        gmu_cfg.create(data)
+
     table_print("SUCCESS",
-                f"Письмо загружено в Unisender. Message ID: {api_result.get('message_id', '')}")
+                f"Письмо загружено в Unisender. Message ID: {api_result.get('message_id', '')} | URL: https://cp.unisender.com/ru/v5/email-campaign/editor/{api_result.get('message_id', '')}?step=send")

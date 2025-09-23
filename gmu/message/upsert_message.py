@@ -57,7 +57,7 @@ def create_or_update_message(
 
         gmu_cfg.update(data)
         table_print("SUCCESS",
-                    f"Письмо обновлено, старое письмо было удалено. Message ID: {api_result.get('message_id', '')}")
+                    f"Письмо обновлено в Unisender. Message ID: {api_result.get('message_id', '')} | URL: https://cp.unisender.com/ru/v5/email-campaign/editor/{api_result.get('message_id', '')}?step=send")
 
     # Если gmu.json не существует, то создаем
     else:
@@ -73,4 +73,4 @@ def create_or_update_message(
         gmu_cfg.update(data)
 
         table_print("SUCCESS",
-                    f"Письмо создано. Message ID: {api_result.get('message_id', '')}")
+                    f"Письмо загружено в Unisender. Message ID: {api_result.get('message_id', '')} | URL: https://cp.unisender.com/ru/v5/email-campaign/editor/{api_result.get('message_id', '')}?step=send")
