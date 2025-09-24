@@ -28,8 +28,9 @@ def deploy_to_wl():
         html_filename, images_folder, False, False)
     process_result = htmlProcessor.process()
 
-    arhchive_path = archive_email(html_filename, process_result.get(
-        'inlined_html'), process_result.get('attachments'))
+    arhchive_path = archive_email(html_filename,
+                                  process_result.get('inlined_html'),
+                                  process_result.get('attachments'))
 
     if not os.environ.get("WL_AUTH_TOKEN"):
         print(
@@ -58,9 +59,8 @@ def deploy_to_wl():
         )
     if 'data' in result.json():
         resData = result.json().get("data")
-        cfg_data["webletter_id"] = resData.get("id", "")
-
-    gmu_cfg.update(cfg_data)
+    process_result["data"]["webletter_id"] = resData.get("id", "")
+    gmu_cfg.update(process_result.get("data", {}))
 
     table_print("SUCCESS",
                 f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")

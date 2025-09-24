@@ -1,7 +1,6 @@
 import datetime
 import os
 import re
-import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Tuple
@@ -26,7 +25,7 @@ class HTMLProcessor:
         html_filename  : имя исходного HTML-файла.
         images_folder : папка, где лежат изображения.
         replace_src   : заменять ли src на короткие пути внутри HTML (True/False).
-        rename_images : переименовывать ли картинки в UUID.* (True/False).
+        rename_images : переименовывать ли картинки (True/False).
         """
 
         self.html_filename = html_filename
@@ -47,6 +46,7 @@ class HTMLProcessor:
         self.attachments = {}
         # Словарь "старое_имя → новое_имя"
         self.image_renames = {}
+        self.size = None
         self.result_html = None
 
         self._load_html()
@@ -217,7 +217,7 @@ class HTMLProcessor:
             # и фиксируется до конца обработки
             if self.rename_images:
                 # Формат: DDMMYYYYHHMM_счётчик
-                # (учтите, что final_ext добавляется после обработки)
+                # (final_ext добавляется после обработки)
                 tentative_name = f"{time_prefix}_{image_counter}"
                 image_counter += 1
             else:
@@ -282,7 +282,7 @@ class HTMLProcessor:
             try:
                 if ext in ('jpg', 'jpeg'):
                     img_format = 'JPEG'
-                    final_ext = '.jpg'  # или .jpeg; обычнее .jpg
+                    final_ext = '.jpg'  # или .jpeg; обычно .jpg
                 elif ext == 'png':
                     img_format = 'PNG'
                     final_ext = '.png'
@@ -312,7 +312,7 @@ class HTMLProcessor:
                 console.print(
                     f"[bold red]ERROR:[/bold red] Ошибка при обработке изображения {fname}: {e}"
                 )
-                # Ошибка — всё равно добавим файл в вложения, чтобы письмо сформировалось
+                # Ошибка — всё равно добавим файл во вложения, чтобы письмо сформировалось
                 if self.rename_images:
                     new_name = f"{tentative_name}{final_ext}"
                 else:
@@ -402,6 +402,17 @@ class HTMLProcessor:
         self.result_html = _restore_conditional_comments(
             inlined_html, comments)
 
+    def _get_size(self):
+        """Считает размер архива"""
+        total_bytes = 0
+        for attachment_bytes in self.attachments.values():
+            total_bytes += len(attachment_bytes)
+
+        total_bytes += len(self.result_html)
+        total_megabytes = total_bytes / (1024 * 1024)
+
+        self.size = ":.2f".format(total_megabytes)
+
     def process(self):
         """Основной метод, запускающий весь пайплайн обработки."""
 
@@ -424,12 +435,17 @@ class HTMLProcessor:
         # 6. Инлайн CSS (premailer)
         self._inline_css()
 
+        self._get_size()
+
         return {
-            'sender_name': self.sender_name,
-            'sender_email': self.sender_email,
-            'subject': self.subject,
-            'preheader': self.preheader,
-            'language': self.language,
+            'data': {
+                'sender_name': self.sender_name,
+                'sender_email': self.sender_email,
+                'subject': self.subject,
+                'preheader': self.preheader,
+                'language': self.language,
+                'size': self.size
+            },
             'attachments': self.attachments,
-            'inlined_html': self.result_html
+            'inlined_html': self.result_html,
         }

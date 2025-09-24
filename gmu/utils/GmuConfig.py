@@ -17,7 +17,7 @@ class GmuConfig:
     def exists(self):
         return os.path.exists(self.path)
 
-    def load(self):
+    def load(self) -> dict:
         """Загрузить данные из файла в self._data (и вернуть их)."""
         if not self.exists():
             raise FileNotFoundError(f"Файл {self.path} не найден!")
@@ -108,7 +108,7 @@ class GmuConfig:
             return False
 
     @property
-    def data(self):
+    def data(self) -> dict:
         """
         Получить текущие данные (если не загружены — загрузить с диска).
         """

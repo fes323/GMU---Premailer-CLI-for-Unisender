@@ -44,27 +44,26 @@ def create_message(
         raise ValueError(
             f'Missing required fields: {", ".join(missing_fields)}')
 
-    archive_email(html_filename, process_result.get(
-        'inlined_html'), process_result.get('attachments'))
+    archive_email(html_filename,
+                  process_result.get('inlined_html'),
+                  process_result.get('attachments'))
 
     api_result = uClient.create_email_message(
-        process_result.get('sender_name'), process_result.get('sender_email'), process_result.get('subject'), process_result.get('inlined_html'), int(
-            list_id), process_result.get('attachments')
+        sender_name=process_result.get('data', {}).get('sender_name'),
+        sender_email=process_result.get('data', {}).get('sender_email'),
+        subject=process_result.get('data', {}).get('subject'),
+        body=process_result.get('inlined_html', {}),
+        list_id=int(list_id),
+        attachments=process_result.get('attachments'),
+        lang=process_result.get('data', {}).get('language')
     )
 
-    data = {
-        "message_id": api_result.get('message_id', ''),
-        "sender_name": process_result.get('sender_name'),
-        "sender_email":  process_result.get('sender_email'),
-        "subject": process_result.get('subject'),
-        "preheader": process_result.get('preheader'),
-        "language": process_result.get('language'),
-    }
+    process_result["data"]["message_id"] = api_result.get('message_id', '')
 
     if gmu_cfg.exists():
-        gmu_cfg.update(data)
+        gmu_cfg.update(process_result.get('data', {}))
     else:
-        gmu_cfg.create(data)
+        gmu_cfg.create(process_result.get('data', {}))
 
     table_print("SUCCESS",
                 f"Письмо загружено в Unisender. Message ID: {api_result.get('message_id', '')} | URL: https://cp.unisender.com/ru/v5/email-campaign/editor/{api_result.get('message_id', '')}?step=send")

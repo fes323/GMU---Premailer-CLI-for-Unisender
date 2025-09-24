@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from gmu.archive import app as archive_app
 from gmu.campaign import app as campaign_app
 from gmu.message import app as message_app
-from gmu.pdf import app as pdf_app
 from gmu.version import app as version_app
 from gmu.webletter import app as webletter_app
 
@@ -44,7 +43,6 @@ app = typer.Typer()
 
 app.add_typer(version_app)
 app.add_typer(archive_app)
-app.add_typer(pdf_app)
 app.add_typer(campaign_app, name="campaign")
 app.add_typer(message_app, name="message")
 app.add_typer(webletter_app, name="wl")
