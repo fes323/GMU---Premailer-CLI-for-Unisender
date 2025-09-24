@@ -402,17 +402,6 @@ class HTMLProcessor:
         self.result_html = _restore_conditional_comments(
             inlined_html, comments)
 
-    def _get_size(self):
-        """Считает размер архива"""
-        total_bytes = 0
-        for attachment_bytes in self.attachments.values():
-            total_bytes += len(attachment_bytes)
-
-        total_bytes += len(self.result_html)
-        total_megabytes = total_bytes / (1024 * 1024)
-
-        self.size = ":.2f".format(total_megabytes)
-
     def process(self):
         """Основной метод, запускающий весь пайплайн обработки."""
 
@@ -435,8 +424,6 @@ class HTMLProcessor:
         # 6. Инлайн CSS (premailer)
         self._inline_css()
 
-        self._get_size()
-
         return {
             'data': {
                 'sender_name': self.sender_name,
@@ -444,7 +431,6 @@ class HTMLProcessor:
                 'subject': self.subject,
                 'preheader': self.preheader,
                 'language': self.language,
-                'size': self.size
             },
             'attachments': self.attachments,
             'inlined_html': self.result_html,

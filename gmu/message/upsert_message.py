@@ -1,3 +1,5 @@
+import os
+
 import typer
 
 from gmu.utils.archive import archive_email
@@ -27,10 +29,10 @@ def create_or_update_message(
         html_filename, images_folder, True, True)
     process_result = htmlProcessor.process()
 
-    archive_email(html_filename,
-                  process_result.get('inlined_html'),
-                  process_result.get('attachments'))
-
+    arhchive_path = archive_email(html_filename,
+                                  process_result.get('inlined_html'),
+                                  process_result.get('attachments'))
+    process_result['data']['zip_size'] = os.path.getsize(arhchive_path)
     gmu_cfg = GmuConfig()
 
     # Если gmu.json существует, то обновляем

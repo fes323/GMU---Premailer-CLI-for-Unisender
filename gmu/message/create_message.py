@@ -1,3 +1,5 @@
+import os
+
 import typer
 
 from gmu.utils.archive import archive_email
@@ -44,10 +46,10 @@ def create_message(
         raise ValueError(
             f'Missing required fields: {", ".join(missing_fields)}')
 
-    archive_email(html_filename,
-                  process_result.get('inlined_html'),
-                  process_result.get('attachments'))
-
+    arhchive_path = archive_email(html_filename,
+                                  process_result.get('inlined_html'),
+                                  process_result.get('attachments'))
+    process_result['data']['zip_size'] = os.path.getsize(arhchive_path)
     api_result = uClient.create_email_message(
         sender_name=process_result.get('data', {}).get('sender_name'),
         sender_email=process_result.get('data', {}).get('sender_email'),

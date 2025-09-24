@@ -31,7 +31,7 @@ def deploy_to_wl():
     arhchive_path = archive_email(html_filename,
                                   process_result.get('inlined_html'),
                                   process_result.get('attachments'))
-
+    process_result['data']['zip_size'] = os.path.getsize(arhchive_path)
     if not os.environ.get("WL_AUTH_TOKEN"):
         print(
             colored(

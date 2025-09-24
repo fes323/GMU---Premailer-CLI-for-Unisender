@@ -1,4 +1,5 @@
 
+import os
 from typing import Optional
 
 import typer
@@ -42,10 +43,10 @@ def update_message(
         html_filename, images_folder, True, True)
     process_result = htmlProcessor.process()
 
-    archive_email(html_filename,
-                  process_result.get('inlined_html'),
-                  process_result.get('attachments'))
-
+    arhchive_path = archive_email(html_filename,
+                                  process_result.get('inlined_html'),
+                                  process_result.get('attachments'))
+    process_result['data']['zip_size'] = os.path.getsize(arhchive_path)
     api_result = uClient.create_email_message(
         sender_name=process_result.get('data', {}).get('sender_name'),
         sender_email=process_result.get('data', {}).get('sender_email'),
