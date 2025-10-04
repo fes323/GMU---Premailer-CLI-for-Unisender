@@ -9,7 +9,7 @@ from termcolor import colored
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
-from gmu.utils.HTMLProcessor import HTMLProcessor
+from gmu.utils.HTMLprocessor import HTMLProcessor
 
 load_dotenv()
 app = typer.Typer()
@@ -43,24 +43,34 @@ def deploy_to_wl():
         return
     zipName = os.path.basename(arhchive_path)
     headers = {"Authorization": os.environ.get("WL_AUTH_TOKEN")}
-    files = {"file": (zipName, open(arhchive_path, "rb"), "application/zip")}
     cfg_data = gmu_cfg.load()
-    if cfg_data.get("webletter_id"):
-        result = requests.put(
-            str(os.environ.get("WL_ENDPOINT") + cfg_data.get('webletter_id')),
-            headers=headers,
-            files=files
-        )
-    else:
-        result = requests.post(
-            str(os.environ.get("WL_ENDPOINT") + 'upload'),
-            headers=headers,
-            files=files
-        )
-    if 'data' in result.json():
-        resData = result.json().get("data")
-    process_result["data"]["webletter_id"] = resData.get("id", "")
-    gmu_cfg.update(process_result.get("data", {}))
 
-    table_print("SUCCESS",
-                f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")
+    with open(arhchive_path, "rb") as file:
+        files = {"file": (zipName, file, "application/zip")}
+        if cfg_data.get("webletter_id"):
+            result = requests.put(
+                str(os.environ.get("WL_ENDPOINT") +
+                    cfg_data.get('webletter_id')),
+                headers=headers,
+                files=files
+            )
+        else:
+            result = requests.post(
+                str(os.environ.get("WL_ENDPOINT") + 'upload'),
+                headers=headers,
+                files=files
+            )
+    try:
+        result_json = result.json()
+        if 'data' in result_json:
+            resData = result_json.get("data")
+            process_result["data"]["webletter_id"] = resData.get("id", "")
+            gmu_cfg.update(process_result.get("data", {}))
+
+            table_print("SUCCESS",
+                        f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")
+        else:
+            table_print(
+                "ERROR", f"Ошибка при загрузке файла на WL: {result_json}")
+    except Exception as e:
+        table_print("ERROR", f"Ошибка при обработке ответа от WL: {e}")

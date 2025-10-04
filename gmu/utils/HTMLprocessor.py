@@ -9,11 +9,26 @@ import cairosvg
 from bs4 import BeautifulSoup, Comment
 from dotenv import load_dotenv
 from PIL import Image
-from premailer import transform
 from rich.console import Console
 from rich.progress import track
 
+from gmu.utils.custom_css_inliner import inline_css_custom
 from gmu.utils.logger import gmu_logger
+
+
+# Безопасная функция логирования
+def safe_log(level, message):
+    """Безопасное логирование с проверкой на None."""
+    if gmu_logger:
+        if level == 'critical':
+            gmu_logger.critical(message)
+        elif level == 'warning':
+            gmu_logger.warning(message)
+        elif level == 'info':
+            gmu_logger.info(message)
+    else:
+        print(f"[{level.upper()}] {message}")
+
 
 load_dotenv()
 console = Console()
@@ -76,7 +91,7 @@ class HTMLProcessor:
         if sender_name_tag:
             self.sender_name = sender_name_tag.get("content", "Unknown Sender")
         else:
-            gmu_logger.critical("Sender name not found in HTML meta tags")
+            safe_log('critical', "Sender name not found in HTML meta tags")
 
     def _extract_sender_mail(self):
         """Извлекает email отправителя из meta-тега name='sender-email'."""
@@ -86,7 +101,7 @@ class HTMLProcessor:
             self.sender_email = sender_email_tag.get(
                 "content", "Unknown Email")
         else:
-            gmu_logger.critical("Sender email not found in HTML meta tags")
+            safe_log('critical', "Sender email not found in HTML meta tags")
 
     def _extract_subject(self):
         """Извлекает текст <title> как тему письма (subject)."""
@@ -129,7 +144,7 @@ class HTMLProcessor:
 
     def _find_images(self):
         """Находит тэги <img> в HTML, собирает информацию (имена, требуемую ширину)."""
-        console.print("\n📃 Finding images in HTML")
+        console.print("\n[Finding images in HTML]")
         found_images = []
         for tag in track(self.soup.find_all("img"), description=""):
             src = tag.get("src")
@@ -149,7 +164,7 @@ class HTMLProcessor:
         Обрабатывает найденные изображения: конвертация svg → png, ресайз и сжатие,
         избегая повторной обработки файла и генерируя новые имена по дате/времени и счётчику.
         """
-        console.print("🖼️  Processing images")
+        console.print("[Processing images]")
         # Генерируем префикс-метку для всех картинок (одна дата/время на единицу обработки)
         time_prefix = datetime.datetime.now().strftime("%d%m%Y%H%M")
         # Ведём счётчик для новых имён
@@ -162,27 +177,54 @@ class HTMLProcessor:
         ) -> bytes:
             """
             Изменяет размер изображения до заданной ширины (с сохранением пропорций)
-            и сжимает при сохранении.
+            и сжимает при сохранении, сохраняя правильные цветовые профили.
             """
             with Image.open(BytesIO(image_bytes)) as img:
+                # Сохраняем ICC профиль если он есть
+                icc_profile = img.info.get('icc_profile')
+
                 # Если output_format не задан, берём формат из самого изображения или PNG
                 img_format = output_format if output_format else (
                     img.format if img.format else 'PNG')
                 save_params = {}
 
-                # Приводим к корректному режиму (JPEG → RGB)
-                if img_format and img_format.upper() == 'JPEG' and img.mode != 'RGB':
-                    img = img.convert('RGB')
-                elif img.mode not in ('RGBA', 'LA', 'RGB'):
-                    img = img.convert('RGB')
+                # Улучшенная конвертация цветовых пространств
+                if img_format and img_format.upper() == 'JPEG':
+                    # JPEG требует RGB режим
+                    if img.mode not in ('RGB', 'L'):
+                        if img.mode == 'RGBA':
+                            # Создаем белый фон для прозрачности
+                            background = Image.new(
+                                'RGB', img.size, (255, 255, 255))
+                            # Используем альфа-канал как маску
+                            background.paste(img, mask=img.split()[-1])
+                            img = background
+                        elif img.mode == 'LA':
+                            # Конвертируем L+A в RGB
+                            img = img.convert('RGB')
+                        else:
+                            img = img.convert('RGB')
+                elif img_format and img_format.upper() == 'PNG':
+                    # PNG поддерживает RGBA, LA, RGB, L
+                    if img.mode == 'CMYK':
+                        img = img.convert('RGBA')  # CMYK → RGBA
+                    elif img.mode == 'P':
+                        img = img.convert(
+                            'RGBA') if 'transparency' in img.info else img.convert('RGB')
+                    elif img.mode not in ('RGBA', 'LA', 'RGB', 'L'):
+                        img = img.convert('RGBA')
 
-                # Параметры сжатия
+                # Улучшенные параметры сжатия для лучшего качества
                 if img_format and img_format.upper() == "JPEG":
-                    save_params['quality'] = 75
+                    save_params['quality'] = 85  # Увеличиваем качество
                     save_params['optimize'] = True
+                    save_params['progressive'] = True
+                    # Отключаем субсэмплинг для лучшего качества
+                    save_params['subsampling'] = 0
                 elif img_format and img_format.upper() == "PNG":
                     save_params['optimize'] = True
-                    save_params['compress_level'] = 9
+                    # Уменьшаем сжатие для лучшего качества
+                    save_params['compress_level'] = 6
 
                 # Ресайз, если target_width задан и изображение больше
                 if target_width and img.width > target_width:
@@ -190,6 +232,10 @@ class HTMLProcessor:
                     target_height = int(img.height * w_percent)
                     img = img.resize(
                         (target_width, target_height), Image.Resampling.LANCZOS)
+
+                # Восстанавливаем ICC профиль если он был
+                if icc_profile and img_format and img_format.upper() == 'PNG':
+                    save_params['icc_profile'] = icc_profile
 
                 output = BytesIO()
                 img.save(output, format=img_format, **save_params)
@@ -203,8 +249,8 @@ class HTMLProcessor:
 
             img_file = Path(self.images_folder) / fname
             if not img_file.exists():
-                gmu_logger.warning(
-                    f"Image {fname} not found in {self.images_folder}/")
+                safe_log(
+                    'warning', f"Image {fname} not found in {self.images_folder}/")
                 console.print(
                     f"[bold yellow]WARNING:[/bold yellow] Изображение {fname} не найдено в {self.images_folder}/"
                 )
@@ -225,14 +271,32 @@ class HTMLProcessor:
                 # без расширения, чтобы svg → png корректно дописался
                 tentative_name = fname.rsplit('.', 1)[0]
 
-            # 1. SVG → PNG
+            # 1. SVG → PNG с улучшенными параметрами
             if ext == 'svg':
                 try:
-                    png_bytes = cairosvg.svg2png(bytestring=file_bytes)
+                    # Улучшенная конвертация SVG в PNG с лучшими параметрами
+                    png_bytes = cairosvg.svg2png(
+                        bytestring=file_bytes,
+                        output_width=width if width else None,  # Задаем ширину сразу если нужна
+                        unsafe=False,  # Безопасный режим
+                        output_height=None,  # Автоматический расчет высоты
+                        background_color='white'  # Белый фон для лучшей совместимости
+                    )
                     final_ext = '.png'
-                    # Если нужно ресайзить
-                    png_bytes = (_resize_and_compress_image(png_bytes, target_width=width, output_format='PNG')
-                                 if width else _resize_and_compress_image(png_bytes, output_format='PNG'))
+
+                    # Дополнительная обработка если нужен ресайз (когда width задана в SVG но не в атрибуте data-width)
+                    if not width:
+                        with Image.open(BytesIO(png_bytes)) as img_check:
+                            if img_check.width > 1200:  # Если изображение слишком широкое для email
+                                png_bytes = _resize_and_compress_image(
+                                    png_bytes, target_width=1200, output_format='PNG')
+                            else:
+                                png_bytes = _resize_and_compress_image(
+                                    png_bytes, output_format='PNG')
+                    else:
+                        # Если ширина уже задана, используем стандартную обработку
+                        png_bytes = _resize_and_compress_image(
+                            png_bytes, target_width=width, output_format='PNG')
 
                     if self.rename_images:
                         new_name = f"{tentative_name}{final_ext}"
@@ -243,8 +307,10 @@ class HTMLProcessor:
 
                     self.attachments[new_name] = png_bytes
                     self.image_renames[fname] = new_name
+                    safe_log(
+                        'info', f"SVG {fname} successfully converted to PNG")
                 except Exception as e:
-                    gmu_logger.critical(f"{fname} not converted to png: {e}")
+                    safe_log('critical', f"{fname} not converted to png: {e}")
                     console.print(
                         f"[bold red]ERROR:[/bold red] SVG to PNG конвертация не удалась для {fname}: {e}"
                     )
@@ -254,7 +320,7 @@ class HTMLProcessor:
             if ext == 'gif':
                 max_gif_size = 500 * 1024  # 500 KB
                 if len(file_bytes) > max_gif_size:
-                    gmu_logger.warning(f"GIF {fname} is larger than 500 kb")
+                    safe_log('warning', f"GIF {fname} is larger than 500 kb")
                     console.print(
                         f"[bold red]EXCEPTION:[/bold red] GIF-изображение '{fname}' "
                         f"слишком большое: {len(file_bytes)//1024} КБ"
@@ -262,8 +328,8 @@ class HTMLProcessor:
                     raise Exception(
                         f"[EXCEPTION] GIF-изображение '{fname}' слишком большое: {len(file_bytes)//1024} КБ"
                     )
-                gmu_logger.info(
-                    f"GIF images do not resize. data-width ignored. {fname} skip.")
+                safe_log(
+                    'info', f"GIF images do not resize. data-width ignored. {fname} skip.")
                 console.print(
                     f"[bold yellow]WARNING:[/bold yellow] GIF-изображения не ресайзятся. '{fname}' будет пропущено."
                 )
@@ -278,14 +344,23 @@ class HTMLProcessor:
                 self.image_renames[fname] = new_name
                 continue
 
-            # 3. Остальные (jpg / jpeg / png / ...)
+            # 3. Остальные форматы (jpg / jpeg / png / webp / bmp / tiff / ...)
             try:
                 if ext in ('jpg', 'jpeg'):
                     img_format = 'JPEG'
-                    final_ext = '.jpg'  # или .jpeg; обычно .jpg
+                    final_ext = '.jpg'
                 elif ext == 'png':
                     img_format = 'PNG'
                     final_ext = '.png'
+                elif ext == 'webp':
+                    img_format = 'WEBP'
+                    final_ext = '.webp'
+                elif ext == 'bmp':
+                    img_format = 'BMP'
+                    final_ext = '.bmp'
+                elif ext in ('tiff', 'tif'):
+                    img_format = 'TIFF'
+                    final_ext = '.tiff'
                 else:
                     img_format = None
                     final_ext = f".{ext}"
@@ -304,11 +379,11 @@ class HTMLProcessor:
 
                 self.attachments[new_name] = processed_bytes
                 self.image_renames[fname] = new_name
-                gmu_logger.info(
-                    f"Image {fname} successfully resized and compressed.")
+                safe_log(
+                    'info', f"Image {fname} ({ext.upper()}) successfully processed.")
             except Exception as e:
-                gmu_logger.critical(
-                    f"Error while processing image {fname}: {e}")
+                safe_log(
+                    'critical', f"Error while processing image {fname}: {e}")
                 console.print(
                     f"[bold red]ERROR:[/bold red] Ошибка при обработке изображения {fname}: {e}"
                 )
@@ -326,7 +401,7 @@ class HTMLProcessor:
         После того, как все картинки обработаны и переименованы (при необходимости),
         пройдёмся по <img> и обновим атрибуты src на конечные имена.
         """
-        console.print("🔁 Updating <img> src in HTML")
+        console.print("[Updating <img> src in HTML]")
         for tag in track(self.soup.find_all("img"), description=""):
             old_src = tag.get("src")
             old_basename = os.path.basename(old_src)
@@ -337,6 +412,61 @@ class HTMLProcessor:
                     tag['src'] = Path(new_fname).name
                 else:
                     tag['src'] = f"{self.images_folder}/{Path(new_fname).name}"
+
+    def _preserve_existing_dimensions(self):
+        """
+        Устанавливает атрибуты width и height для изображений ТОЛЬКО если они не заданы явно.
+        data-width и data-height используются только для обработки изображений, а не для управления отображением.
+        Приоритет: существующий атрибут width/height > CSS стили > data-width/data-height (только если ничего не задано).
+        После обработки удаляет data-width и data-height атрибуты, чтобы они не влияли на отображение.
+        """
+        console.print(
+            "[Preserving existing width/height attributes and CSS styles]")
+        for tag in track(self.soup.find_all("img"), description=""):
+            data_width = tag.get("data-width")
+            data_height = tag.get("data-height")
+
+            # Проверяем, есть ли уже заданные атрибуты или стили
+            existing_width = tag.get('width')
+            existing_height = tag.get('height')
+            current_style = tag.get('style', '')
+
+            # Проверяем наличие width в CSS стилях
+            has_width_in_css = 'width' in current_style if current_style else False
+            has_height_in_css = 'height' in current_style if current_style else False
+
+            # Устанавливаем width только если НЕТ существующего атрибута И НЕТ CSS стиля
+            if data_width and data_width.isdigit() and not existing_width and not has_width_in_css:
+                tag['width'] = data_width
+                safe_log(
+                    'info', f"Set width={data_width}px from data-width for image {tag.get('src', 'unknown')} (no existing width found)")
+
+            # Устанавливаем height только если НЕТ существующего атрибута И НЕТ CSS стиля
+            if data_height and data_height.isdigit() and not existing_height and not has_height_in_css:
+                tag['height'] = data_height
+                safe_log(
+                    'info', f"Set height={data_height}px from data-height for image {tag.get('src', 'unknown')} (no existing height found)")
+
+            # Логируем случаи, когда data-width/data-height игнорируются
+            if data_width and data_width.isdigit() and (existing_width or has_width_in_css):
+                reason = "existing width attribute" if existing_width else "existing CSS width style"
+                safe_log(
+                    'info', f"Ignored data-width={data_width}px for image {tag.get('src', 'unknown')} due to {reason}")
+
+            if data_height and data_height.isdigit() and (existing_height or has_height_in_css):
+                reason = "existing height attribute" if existing_height else "existing CSS height style"
+                safe_log(
+                    'info', f"Ignored data-height={data_height}px for image {tag.get('src', 'unknown')} due to {reason}")
+
+            # Удаляем data-width и data-height атрибуты после обработки, чтобы они не влияли на отображение
+            if data_width:
+                del tag['data-width']
+                safe_log(
+                    'info', f"Removed data-width attribute from image {tag.get('src', 'unknown')}")
+            if data_height:
+                del tag['data-height']
+                safe_log(
+                    'info', f"Removed data-height attribute from image {tag.get('src', 'unknown')}")
 
     def _remove_spaces_from_style(self):
         """Удаляет лишние пробелы из атрибутов style во всех тегах."""
@@ -350,57 +480,11 @@ class HTMLProcessor:
             tag['style'] = _optimize_style(tag['style'])
 
     def _inline_css(self):
-        """Инлайнит все стили с помощью premailer и восстанавливает Outlook-комментарии."""
-        def _extract_conditional_comments(html_str: str) -> Tuple[str, Dict[str, str]]:
-            """
-            Находит outlook-комментарии ([if ... mso]) и заменяет их на плейсхолдеры.
-            """
-            pattern = re.compile(
-                r'<!--\[(if(?=[^\]]*mso).*?endif)\]-->', re.DOTALL | re.IGNORECASE)
-            comments_map = {}
+        """Инлайнит все стили с помощью собственного решения с сохранением Outlook-комментариев."""
 
-            def replacer(match):
-                key = f"<!--COND_COMMENT_{len(comments_map)}-->"
-                comments_map[key] = match.group(0)
-                return key
-
-            modified_html = pattern.sub(replacer, html_str)
-            return modified_html, comments_map
-
-        def _restore_conditional_comments(html_str: str, comments_map: Dict[str, str]) -> str:
-            """
-            Восстанавливает outlook-комментарии по ранее вставленным плейсхолдерам.
-            """
-            for placeholder, comment in comments_map.items():
-                html_str = html_str.replace(placeholder, comment)
-            return html_str
-
-        # 1. Удаляем обычные комментарии, кроме Outlook-комментариев
-        html_str = str(self.soup)
-        soup_no_comments = BeautifulSoup(html_str, 'html.parser')
-        for comment in soup_no_comments.find_all(string=lambda text: isinstance(text, Comment)):
-            # Убираем inline-флаг (?i) из середины паттерна, вместо этого используем re.IGNORECASE
-            if not re.match(r'\[if[^\]]*mso', comment, re.IGNORECASE):
-                comment.extract()
-        clean_html = str(soup_no_comments)
-
-        # 2. Прячем Outlook-комментарии через плейсхолдеры
-        modified_html, comments = _extract_conditional_comments(clean_html)
-
-        # 3. Инлайн CSS через premailer
-        inlined_html = transform(
-            modified_html,
-            keep_style_tags=False,
-            remove_classes=False,
-            preserve_internal_links=True,
-            strip_important=False,
-            cssutils_logging_level='CRITICAL',
-            cssutils_logging_handler=None
-        )
-
-        # 4. Восстанавливаем Outlook-комментарии
-        self.result_html = _restore_conditional_comments(
-            inlined_html, comments)
+        # Используем собственное решение для инлайн-стилизации
+        # Оно автоматически сохраняет Outlook комментарии
+        self.result_html = inline_css_custom(str(self.soup))
 
     def process(self):
         """Основной метод, запускающий весь пайплайн обработки."""
@@ -419,9 +503,11 @@ class HTMLProcessor:
         self._process_attachments()
         # 4. Обновляем ссылки в <img src> на конечные имена
         self._update_image_sources()
-        # 5. Убираем пробелы из inline-style
+        # 5. Сохраняем существующие размеры и устанавливаем data-width только как fallback
+        self._preserve_existing_dimensions()
+        # 6. Убираем пробелы из inline-style
         self._remove_spaces_from_style()
-        # 6. Инлайн CSS (premailer)
+        # 7. Инлайн CSS (premailer)
         self._inline_css()
 
         return {

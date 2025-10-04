@@ -1,7 +1,7 @@
 import typer
 
 from gmu.utils.archive import archive_email
-from gmu.utils.HTMLProcessor import HTMLProcessor
+from gmu.utils.HTMLprocessor import HTMLProcessor
 
 app = typer.Typer()
 
@@ -13,7 +13,7 @@ def archive(
     images_folder: str = typer.Option("images", help="Папка с картинками"),
 ):
     htmlProcessor = HTMLProcessor(
-        html_filename, images_folder, True)
+        html_filename, images_folder, True, True)
     process_result = htmlProcessor.process()
 
     archive_email(html_filename, process_result.get(

@@ -18,12 +18,12 @@ class UnisenderClient:
         self.API_KEY = os.environ.get(
             "UNISENDER_API_KEY", "No API key provided")
         self.API_URL = os.environ.get(
-            "UNISENDER_API_URL", "No API ulr provided")
+            "UNISENDER_API_URL", "No API url provided")
 
         if self.API_KEY == "No API key provided":
             raise ValueError(
                 "UNISENDER_API_KEY environment variables must be set.")
-        if self.API_URL == "No API ulr provided":
+        if self.API_URL == "No API url provided":
             raise ValueError(
                 "UNISENDER_API_URL environment variables must be set.")
 

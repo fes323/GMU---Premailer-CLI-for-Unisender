@@ -5,11 +5,18 @@ import platform
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
-    gmu_log = pathlib.Path(appdata) / "gmu" / 'gmu.log'
+    if appdata:
+        gmu_log = pathlib.Path(appdata) / "gmu" / 'gmu.log'
+        # Создаем директорию если она не существует
+        gmu_log.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        gmu_log = pathlib.Path("gmu.log")
 else:
     # Linux и macOS
     home = pathlib.Path.home()
-    gmu_log = "var" / "log"
+    gmu_log = home / "var" / "log" / "gmu.log"
+    # Создаем директорию если она не существует
+    gmu_log.parent.mkdir(parents=True, exist_ok=True)
 
 
 logging.basicConfig(

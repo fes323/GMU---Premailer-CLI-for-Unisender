@@ -5,7 +5,7 @@ import typer
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
-from gmu.utils.HTMLProcessor import HTMLProcessor
+from gmu.utils.HTMLprocessor import HTMLProcessor
 from gmu.utils.Unisender import UnisenderClient
 
 app = typer.Typer()
@@ -47,7 +47,7 @@ def create_or_update_message(
             sender_name=process_result.get('data', {}).get('sender_name'),
             sender_email=process_result.get('data', {}).get('sender_email'),
             subject=process_result.get('data', {}).get('subject'),
-            body=process_result.get('inlined_html', {}),
+            body=process_result.get('inlined_html', ''),
             list_id=int(list_id),
             attachments=process_result.get('attachments'),
             lang=process_result.get('data', {}).get('language')
@@ -65,7 +65,7 @@ def create_or_update_message(
             sender_name=process_result.get('data', {}).get('sender_name'),
             sender_email=process_result.get('data', {}).get('sender_email'),
             subject=process_result.get('data', {}).get('subject'),
-            body=process_result.get('inlined_html', {}),
+            body=process_result.get('inlined_html', ''),
             list_id=int(list_id),
             attachments=process_result.get('attachments'),
             lang=process_result.get('data', {}).get('language')

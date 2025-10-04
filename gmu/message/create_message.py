@@ -5,7 +5,7 @@ import typer
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
-from gmu.utils.HTMLProcessor import HTMLProcessor
+from gmu.utils.HTMLprocessor import HTMLProcessor
 from gmu.utils.logger import gmu_logger
 from gmu.utils.Unisender import UnisenderClient
 
@@ -40,7 +40,7 @@ def create_message(
 
     required_fields = ['sender_name', 'sender_email', 'subject']
     missing_fields = [
-        field for field in required_fields if process_result.get(field) is None]
+        field for field in required_fields if process_result.get('data', {}).get(field) is None]
 
     if missing_fields:
         raise ValueError(
@@ -54,7 +54,7 @@ def create_message(
         sender_name=process_result.get('data', {}).get('sender_name'),
         sender_email=process_result.get('data', {}).get('sender_email'),
         subject=process_result.get('data', {}).get('subject'),
-        body=process_result.get('inlined_html', {}),
+        body=process_result.get('inlined_html', ''),
         list_id=int(list_id),
         attachments=process_result.get('attachments'),
         lang=process_result.get('data', {}).get('language')
