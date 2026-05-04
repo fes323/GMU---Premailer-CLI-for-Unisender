@@ -4,15 +4,17 @@ import typer
 
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.git_sync import run_git_auto_sync
 from gmu.utils.helpers import table_print
 from gmu.utils.HTMLprocessor import HTMLProcessor
 from gmu.utils.logger import gmu_logger
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.unisender_urls import build_unisender_message_url
 
 app = typer.Typer()
-uClient = UnisenderClient()
 
 
+@app.command(name="c", hidden=True)
 @app.command(name="create")
 def create_message(
     list_id: str = typer.Option(20547119, help="ID списка рассылки"),
@@ -25,7 +27,6 @@ def create_message(
     Создает E-mail письмо в Unisender. В буфер обмена помещает ID созданного письма.
     Если файл конфигурации существует, предлагает обновить или пересоздать.
     """
-
     gmu_cfg = GmuConfig()
 
     if force == False:
@@ -50,6 +51,7 @@ def create_message(
                                   process_result.get('inlined_html'),
                                   process_result.get('attachments'))
     process_result['data']['zip_size'] = os.path.getsize(arhchive_path)
+    uClient = UnisenderClient()
     api_result = uClient.create_email_message(
         sender_name=process_result.get('data', {}).get('sender_name'),
         sender_email=process_result.get('data', {}).get('sender_email'),
@@ -60,7 +62,9 @@ def create_message(
         lang=process_result.get('data', {}).get('language')
     )
 
-    process_result["data"]["message_id"] = api_result.get('message_id', '')
+    message_id = api_result.get('message_id', '')
+    process_result["data"]["message_id"] = message_id
+    process_result["data"]["message_url"] = build_unisender_message_url(message_id)
 
     if gmu_cfg.exists():
         gmu_cfg.update(process_result.get('data', {}))
@@ -68,4 +72,5 @@ def create_message(
         gmu_cfg.create(process_result.get('data', {}))
 
     table_print("SUCCESS",
-                f"Письмо загружено в Unisender. Message ID: {api_result.get('message_id', '')} | URL: https://cp.unisender.com/ru/v5/email-campaign/editor/{api_result.get('message_id', '')}?step=send")
+                f"Письмо загружено в Unisender. Message ID: {message_id} | URL: {process_result['data']['message_url']}")
+    run_git_auto_sync("создания письма в Unisender")

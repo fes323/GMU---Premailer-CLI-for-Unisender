@@ -7,9 +7,9 @@ from gmu.utils.helpers import table_print
 from gmu.utils.Unisender import UnisenderClient
 
 app = typer.Typer()
-uClient = UnisenderClient()
 
 
+@app.command(name="t", hidden=True)
 @app.command(name="test")
 def send_test_message(id: Optional[int] = typer.Option(None, help="Unisender Letter ID"),
                       email: str = typer.Option(
@@ -32,6 +32,7 @@ def send_test_message(id: Optional[int] = typer.Option(None, help="Unisender Let
                     "Не задан email адрес для отправки тестового письма. Укажите его через параметр --email.")
         return
 
+    uClient = UnisenderClient()
     result = uClient.send_test_message(id, email)
     if result:
         table_print("SUCCESS", "Message send successfully.")

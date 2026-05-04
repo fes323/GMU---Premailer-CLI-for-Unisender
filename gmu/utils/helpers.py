@@ -40,5 +40,5 @@ def validate_datetime_string(date_string, format_string):
     try:
         datetime.datetime.strptime(date_string, format_string)
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False

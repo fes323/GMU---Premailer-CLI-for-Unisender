@@ -6,6 +6,7 @@ from gmu.utils.HTMLprocessor import HTMLProcessor
 app = typer.Typer()
 
 
+@app.command(name="a", hidden=True)
 @app.command(name="archive")
 def archive(
     html_filename: str = typer.Option(

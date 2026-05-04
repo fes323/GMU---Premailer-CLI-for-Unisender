@@ -1,8 +1,11 @@
 import typer
 
+VERSION_TEXT = "Unisender CLI v2.0.0"
+
 app = typer.Typer()
 
 
+@app.command(name="v", hidden=True)
 @app.command()
 def version():
-    return print("Unisender CLI v1.1.0")
+    return print(VERSION_TEXT)

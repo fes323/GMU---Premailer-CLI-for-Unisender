@@ -28,14 +28,25 @@ class UnisenderClient:
                 "UNISENDER_API_URL environment variables must be set.")
 
     def _get_log_file_path(self):
+        candidates = []
         if platform.system() == "Windows":
             appdata = os.getenv("APPDATA")
-            log_dir = pathlib.Path(appdata) / "GMU"
+            if appdata:
+                candidates.append(pathlib.Path(appdata) / "GMU" / "requests.log")
         else:
             home = pathlib.Path.home()
-            log_dir = home / ".config" / "GMU"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        return log_dir / "requests.log"
+            candidates.append(home / ".config" / "GMU" / "requests.log")
+        candidates.append(pathlib.Path("requests.log"))
+
+        for candidate in candidates:
+            try:
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+                with open(candidate, "a", encoding="utf-8"):
+                    pass
+                return candidate
+            except OSError:
+                continue
+        return None
 
     def _log_https_request(self, url, params, request_method, extra_info=None):
         # Не логгируем api_key явно
@@ -52,6 +63,8 @@ class UnisenderClient:
         if extra_info:
             log_text += f" | {extra_info}"
         logfile = self._get_log_file_path()
+        if logfile is None:
+            return
         with open(logfile, "a", encoding="utf-8") as f:
             f.write(log_text + "\n")
 
@@ -138,6 +151,22 @@ class UnisenderClient:
             'campaign_id': campaign_id})
         return result
 
+    def get_actual_message_version(self, message_id: int) -> Union[Literal['error'], Dict[str, Union[str, int]]]:
+        result = self.u_request('getActualMessageVersion', {
+            'message_id': message_id})
+        return result
+
+    def get_web_version(self, campaign_id: int) -> Union[Literal['error'], Dict[str, Union[str, int]]]:
+        result = self.u_request('getWebVersion', {
+            'campaign_id': campaign_id,
+            'format': 'json'
+        })
+        return result
+
+    def get_message(self, message_id: int) -> Union[Literal['error'], Dict[str, Union[str, int]]]:
+        result = self.u_request('getMessage', {'id': message_id})
+        return result
+
     def update_email_message(
         self,
         id: int,
@@ -201,7 +230,10 @@ class UnisenderClient:
 
         result = self.u_request('createEmailMessage', params)
 
-        pyperclip.copy(str(result.get('message_id', '')))
+        try:
+            pyperclip.copy(str(result.get('message_id', '')))
+        except pyperclip.PyperclipException:
+            pass
 
         return result
 
@@ -232,7 +264,8 @@ class UnisenderClient:
     def create_campaign(
         self,
         message_id: int,
-        start_time: str,
+        start_time: Optional[str] = None,
+        timezone: Optional[str] = None,
         track_read: int = 1,
         track_links: int = 1,
         track_ga: int = 1,
@@ -245,7 +278,6 @@ class UnisenderClient:
         """
         params = {
             'message_id': message_id,
-            'start_time': start_time,
             'track_read': track_read,
             'track_links': track_links,
             'track_ga': track_ga,
@@ -253,5 +285,10 @@ class UnisenderClient:
             'ga_source': ga_source,
             'ga_campaign': ga_campaign
         }
+        if start_time:
+            params['start_time'] = start_time
+        if timezone:
+            params['timezone'] = timezone
+
         result = self.u_request('createCampaign', params)
         return result

@@ -8,6 +8,7 @@ from termcolor import colored
 
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.git_sync import run_git_auto_sync
 from gmu.utils.helpers import table_print
 from gmu.utils.HTMLprocessor import HTMLProcessor
 
@@ -16,6 +17,7 @@ app = typer.Typer()
 gmu_cfg = GmuConfig("gmu.json")
 
 
+@app.command(name="u", hidden=True)
 @app.command(name="upsert")
 def deploy_to_wl():
     html_filename = glob.glob("*.html")[0]
@@ -65,10 +67,14 @@ def deploy_to_wl():
         if 'data' in result_json:
             resData = result_json.get("data")
             process_result["data"]["webletter_id"] = resData.get("id", "")
+            process_result["data"]["webletter_url"] = (
+                f"{os.environ.get('WL_URL')}{resData.get('id', '')}"
+            )
             gmu_cfg.update(process_result.get("data", {}))
 
             table_print("SUCCESS",
                         f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")
+            run_git_auto_sync("загрузки письма в WebLetter")
         else:
             table_print(
                 "ERROR", f"Ошибка при загрузке файла на WL: {result_json}")

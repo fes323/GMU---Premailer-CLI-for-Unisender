@@ -3,10 +3,8 @@ import os
 import re
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Tuple
 
-import cairosvg
-from bs4 import BeautifulSoup, Comment
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from PIL import Image
 from rich.console import Console
@@ -14,6 +12,7 @@ from rich.progress import track
 
 from gmu.utils.custom_css_inliner import inline_css_custom
 from gmu.utils.logger import gmu_logger
+from gmu.utils.svg_converter import svg_to_png
 
 
 # Безопасная функция логирования
@@ -161,7 +160,7 @@ class HTMLProcessor:
 
     def _process_attachments(self):
         """
-        Обрабатывает найденные изображения: конвертация svg → png, ресайз и сжатие,
+        Обрабатывает найденные изображения: конвертация SVG, ресайз и сжатие,
         избегая повторной обработки файла и генерируя новые имена по дате/времени и счётчику.
         """
         console.print("[Processing images]")
@@ -267,44 +266,29 @@ class HTMLProcessor:
                 tentative_name = f"{time_prefix}_{image_counter}"
                 image_counter += 1
             else:
-                # Если не переименовываем - используем исходное имя (позже добавим .png для svg)
-                # без расширения, чтобы svg → png корректно дописался
+                # Если не переименовываем - используем исходное имя без расширения,
+                # чтобы svg корректно получил .png после конвертации.
                 tentative_name = fname.rsplit('.', 1)[0]
 
-            # 1. SVG → PNG с улучшенными параметрами
+            # 1. SVG -> PNG через resvg-js без системных Cairo/GTK зависимостей.
             if ext == 'svg':
                 try:
-                    # Улучшенная конвертация SVG в PNG с лучшими параметрами
-                    png_bytes = cairosvg.svg2png(
-                        bytestring=file_bytes,
-                        output_width=width if width else None,  # Задаем ширину сразу если нужна
-                        unsafe=False,  # Безопасный режим
-                        output_height=None,  # Автоматический расчет высоты
-                        background_color='white'  # Белый фон для лучшей совместимости
-                    )
+                    png_bytes = svg_to_png(file_bytes, output_width=width)
                     final_ext = '.png'
 
-                    # Дополнительная обработка если нужен ресайз (когда width задана в SVG но не в атрибуте data-width)
                     if not width:
                         with Image.open(BytesIO(png_bytes)) as img_check:
-                            if img_check.width > 1200:  # Если изображение слишком широкое для email
+                            if img_check.width > 1200:
                                 png_bytes = _resize_and_compress_image(
                                     png_bytes, target_width=1200, output_format='PNG')
                             else:
                                 png_bytes = _resize_and_compress_image(
                                     png_bytes, output_format='PNG')
                     else:
-                        # Если ширина уже задана, используем стандартную обработку
                         png_bytes = _resize_and_compress_image(
                             png_bytes, target_width=width, output_format='PNG')
 
-                    if self.rename_images:
-                        new_name = f"{tentative_name}{final_ext}"
-                    else:
-                        # старое имя, но расширение → .png
-                        # tentative_name уже без исходного расширения
-                        new_name = f"{tentative_name}{final_ext}"
-
+                    new_name = f"{tentative_name}{final_ext}"
                     self.attachments[new_name] = png_bytes
                     self.image_renames[fname] = new_name
                     safe_log(
@@ -314,6 +298,7 @@ class HTMLProcessor:
                     console.print(
                         f"[bold red]ERROR:[/bold red] SVG to PNG конвертация не удалась для {fname}: {e}"
                     )
+                    raise
                 continue
 
             # 2. GIF: не ресайзим, но проверяем размер
@@ -480,10 +465,9 @@ class HTMLProcessor:
             tag['style'] = _optimize_style(tag['style'])
 
     def _inline_css(self):
-        """Инлайнит все стили с помощью собственного решения с сохранением Outlook-комментариев."""
+        """Инлайнит все стили через Juice с сохранением Outlook-комментариев."""
 
-        # Используем собственное решение для инлайн-стилизации
-        # Оно автоматически сохраняет Outlook комментарии
+        # Juice обрабатывает CSS-каскад заметно полнее, чем локальный Python-инлайнер.
         self.result_html = inline_css_custom(str(self.soup))
 
     def process(self):
@@ -499,7 +483,7 @@ class HTMLProcessor:
 
         # 2. Поиск <img>, формирование списка для обработки
         self._find_images()
-        # 3. Обработка изображений (конверсия, ресайз, переименование)
+        # 3. Обработка изображений (конверсия SVG, ресайз, сжатие, переименование)
         self._process_attachments()
         # 4. Обновляем ссылки в <img src> на конечные имена
         self._update_image_sources()
@@ -507,7 +491,7 @@ class HTMLProcessor:
         self._preserve_existing_dimensions()
         # 6. Убираем пробелы из inline-style
         self._remove_spaces_from_style()
-        # 7. Инлайн CSS (premailer)
+        # 7. Инлайн CSS (Juice)
         self._inline_css()
 
         return {

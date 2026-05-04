@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "juice": "11.0.1"
+  }
+}

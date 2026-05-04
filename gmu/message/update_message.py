@@ -6,14 +6,16 @@ import typer
 
 from gmu.utils.archive import archive_email
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.git_sync import run_git_auto_sync
 from gmu.utils.helpers import table_print
 from gmu.utils.HTMLprocessor import HTMLProcessor
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.unisender_urls import build_unisender_message_url
 
 app = typer.Typer()
-uClient = UnisenderClient()
 
 
+@app.command(name="upd", hidden=True)
 @app.command(name="update")
 def update_message(
     html_filename: Optional[str] = typer.Option(
@@ -28,7 +30,12 @@ def update_message(
     ВАЖНО: Unisender не поддерживает обновление письма, если картинки были подключены через URL.
     Поэтому данная функция сначала удаляет письмо, а затем создаёт новое с теми же параметрами, но с новым ID!
     """
+    uClient = UnisenderClient()
     gmu_cfg = GmuConfig()
+    if not gmu_cfg.exists():
+        table_print(
+            "ERROR", "Файл gmu.json не найден или не содержит message_id.")
+        return
     gmu_cfg.load()
 
     if gmu_cfg is None or gmu_cfg.data is None or gmu_cfg.data.get("message_id", None) is None:
@@ -57,6 +64,13 @@ def update_message(
         lang=process_result.get('data', {}).get('language')
     )
 
-    process_result["data"]["message_id"] = api_result.get('message_id', '')
+    message_id = api_result.get('message_id', '')
+    process_result["data"]["message_id"] = message_id
+    process_result["data"]["message_url"] = build_unisender_message_url(message_id)
 
     gmu_cfg.update(process_result.get('data', {}))
+    table_print(
+        "SUCCESS",
+        f"Письмо обновлено в Unisender. Message ID: {message_id} | URL: {process_result['data']['message_url']}",
+    )
+    run_git_auto_sync("обновления письма в Unisender")

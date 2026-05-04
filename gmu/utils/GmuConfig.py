@@ -1,7 +1,55 @@
+import copy
 import json
 import os
 
 from gmu.utils.helpers import table_print
+
+
+DEFAULT_GMU_CONFIG = {
+    "message_id": None,
+    "message_url": None,
+    "sender_name": None,
+    "sender_email": None,
+    "subject": None,
+    "preheader": None,
+    "webletter_id": None,
+    "webletter_url": None,
+    "campaign_id": None,
+    "campaign_status": None,
+    "campaign_creation_time": None,
+    "campaign_start_time": None,
+    "web_version_url": None,
+    "web_version_letter_id": None,
+    "actual_version_id": None,
+    "lang": None,
+    "zip_size": None,
+    "created": None,
+    "updated": None,
+    "letter_version": 0,
+    "settings": {
+        "git_auto_sync": False
+    }
+}
+
+
+def default_gmu_config() -> dict:
+    return copy.deepcopy(DEFAULT_GMU_CONFIG)
+
+
+def merge_with_defaults(data: dict | None) -> dict:
+    source = data.copy() if data else {}
+    result = default_gmu_config()
+
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key].update(value)
+        else:
+            result[key] = value
+
+    if "size" in result and result.get("zip_size") is None:
+        result["zip_size"] = result.get("size")
+    result.pop("size", None)
+    return result
 
 
 class GmuConfig:
@@ -24,6 +72,13 @@ class GmuConfig:
         with open(self.path, "r", encoding="utf-8") as f:
             self._data = json.load(f)
         return self._data
+
+    def migrate(self) -> dict:
+        """Добавить в существующий конфиг новые поля, не меняя пользовательские значения."""
+        data = merge_with_defaults(self.load())
+        if data != self._data:
+            self.save(data)
+        return data
 
     def save(self, data=None):
         """Сохранить данные (или свои внутренние, если data не передан) в файл."""
@@ -50,23 +105,11 @@ class GmuConfig:
                     "WARNING", "Создание нового файла конфигурации отменено.")
                 return False
         if data is not None:
-            self._data = data.copy()
+            self._data = merge_with_defaults(data)
         elif self._data is None:
-            # Шаблон по умолчанию
-            self._data = {
-                "message_id": None,
-                "message_url": None,
-                "sender_name": None,
-                "sender_email": None,
-                "subject": None,
-                "preheader": None,
-                "webletter_id": None,
-                "webletter_url": None,
-                "lang": None,
-                "size": None,
-                "created": None,
-                "updated": None
-            }
+            self._data = default_gmu_config()
+        else:
+            self._data = merge_with_defaults(self._data)
         self.save()
         table_print("SUCCESS", f"Новый файл конфигурации {self.path} создан.")
         return True
@@ -82,15 +125,21 @@ class GmuConfig:
                 "ERROR", f"Файл {self.path} не найден. Обновление невозможно.")
             return False
 
-        old_data = self.load()  # загрузили текущие данные из файла
+        current_data = self.load()
+        old_data = merge_with_defaults(current_data)  # загрузили текущие данные из файла
         # Если data не передано, берем текущее состояние self._data (или пустой словарь)
         if data is None:
             data = self._data or {}
 
-        # Мерджим: новое = старое + новые ключи
-        new_data = {**old_data, **data}
+        new_data = old_data.copy()
+        for key, value in data.items():
+            if isinstance(value, dict) and isinstance(new_data.get(key), dict):
+                new_data[key] = {**new_data[key], **value}
+            else:
+                new_data[key] = value
+        new_data = merge_with_defaults(new_data)
 
-        if new_data != old_data:
+        if new_data != current_data:
             self.save(new_data)
         else:
             table_print(

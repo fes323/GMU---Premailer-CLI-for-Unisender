@@ -6,6 +6,7 @@ import typer
 from dotenv import load_dotenv
 
 from gmu.utils.GmuConfig import GmuConfig
+from gmu.utils.git_sync import run_git_auto_sync
 from gmu.utils.helpers import table_print
 
 load_dotenv()
@@ -13,6 +14,7 @@ app = typer.Typer()
 gmu_cfg = GmuConfig("gmu.json")
 
 
+@app.command(name="d", hidden=True)
 @app.command(name="delete")
 def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter")):
 
@@ -32,11 +34,15 @@ def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter
             "ERROR", "Не задан ID письма в Webletter. Укажите его через параметр --id или в gmu.json.")
         return
 
+    endpoint = os.environ.get("WL_ENDPOINT", "https://wl.gefera.ru/api/webletters/")
+
     requests.delete(
-        f"https://wl.gefera.ru/api/webletters/{id}",
+        f"{endpoint.rstrip('/')}/{id}",
         headers=headers,
     )
 
     cfg_data["webletter_id"] = None
+    cfg_data["webletter_url"] = None
     gmu_cfg.update(cfg_data)
     table_print("SUCCESS", f"Письмо успешно удалено из Webletter")
+    run_git_auto_sync("удаления письма из WebLetter")
