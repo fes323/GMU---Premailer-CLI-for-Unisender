@@ -23,9 +23,7 @@ try {
   const { Resvg } = resolveNodeModule("@resvg/resvg-js", "GMU_RESVG_MODULE");
   const args = parseArgs(process.argv.slice(2));
   const svg = fs.readFileSync(0);
-  const renderOptions = {
-    background: "white",
-  };
+  const renderOptions = {};
 
   if (args.width) {
     renderOptions.fitTo = {

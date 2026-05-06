@@ -1,6 +1,6 @@
 [project]
 name = "gmu"
-version = "2.0.0"
+version = "2.0.1"
 description = "Unisender CLI. Create E-mail message, send test message, check status and more. Gefera Media LTD."
 authors = [
     {name = "Maksim Legeyda",email = "maksim.legeyda@yandex.ru"}
