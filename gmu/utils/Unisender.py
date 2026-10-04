@@ -6,11 +6,14 @@ import platform
 import urllib.parse
 from typing import Dict, Literal, Optional, Union
 
-import pyperclip
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+class UnisenderAPIError(RuntimeError):
+    """Explicit API rejection, as opposed to an uncertain network failure."""
 
 
 class UnisenderClient:
@@ -20,10 +23,10 @@ class UnisenderClient:
         self.API_URL = os.environ.get(
             "UNISENDER_API_URL", "No API url provided")
 
-        if self.API_KEY == "No API key provided":
+        if not self.API_KEY or self.API_KEY == "No API key provided":
             raise ValueError(
                 "UNISENDER_API_KEY environment variables must be set.")
-        if self.API_URL == "No API url provided":
+        if not self.API_URL or self.API_URL == "No API url provided":
             raise ValueError(
                 "UNISENDER_API_URL environment variables must be set.")
 
@@ -115,11 +118,11 @@ class UnisenderClient:
 
             # Логгируем
             self._log_https_request(
-                query_url, params_to_compress, "POST",
+                url, {**base_params, **params_to_compress}, "POST",
                 extra_info=f"compressed:{request_compression}, size:{len(payload)}"
             )
 
-            response = requests.post(query_url, data=payload, headers=headers)
+            response = requests.post(query_url, data=payload, headers=headers, timeout=(10, 120))
         else:
             # Обычный POST: всё через form-data
             full_params = {**base_params, **params_to_compress}
@@ -127,19 +130,19 @@ class UnisenderClient:
             headers = {"Content-Type": "application/x-www-form-urlencoded"}
             self._log_https_request(post_url, full_params, "POST")
             response = requests.post(
-                post_url, data=full_params, headers=headers)
+                post_url, data=full_params, headers=headers, timeout=(10, 120))
 
         # Проверяем статус и возвращаем результат
-        try:
-            resp_json = response.json()
-        except Exception:
-            resp_json = {
-                "error": f"Failed to decode JSON: {response.text[:500]}"}
-
-        if 'result' in resp_json and 'error' not in resp_json:
+        response.raise_for_status()
+        resp_json = response.json()
+        if not isinstance(resp_json, dict):
+            raise RuntimeError("Некорректный ответ Unisender: ожидался JSON-объект.")
+        if 'error' in resp_json:
+            raise UnisenderAPIError(str(resp_json['error']))
+        if 'result' in resp_json:
             return resp_json['result']
         else:
-            raise Exception(resp_json.get('error', resp_json))
+            raise RuntimeError(f"Некорректный ответ Unisender: {resp_json}")
 
     def get_campaign_status(self, campaign_id: int) -> Union[Literal['error'], Dict[str, Union[str, int]]]:
         result = self.u_request('getCampaignStatus', {
@@ -229,11 +232,6 @@ class UnisenderClient:
                 params[f'attachments[{filename}]'] = content
 
         result = self.u_request('createEmailMessage', params)
-
-        try:
-            pyperclip.copy(str(result.get('message_id', '')))
-        except pyperclip.PyperclipException:
-            pass
 
         return result
 

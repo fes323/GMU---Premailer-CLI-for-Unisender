@@ -1,6 +1,8 @@
 import copy
 import json
 import os
+import tempfile
+from pathlib import Path
 
 from gmu.utils.helpers import table_print
 
@@ -26,9 +28,7 @@ DEFAULT_GMU_CONFIG = {
     "created": None,
     "updated": None,
     "letter_version": 0,
-    "settings": {
-        "git_auto_sync": False
-    }
+    "message_creation_pending": False,
 }
 
 
@@ -86,8 +86,20 @@ class GmuConfig:
             self._data = data.copy()
         if self._data is None:
             raise ValueError("Нет данных для сохранения!")
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, ensure_ascii=False, indent=4)
+        target = Path(self.path).resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=target.parent,
+                                             prefix=f".{target.name}.", suffix=".tmp", delete=False) as f:
+                temp_path = f.name
+                json.dump(self._data, f, ensure_ascii=False, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, target)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
 
     def create(self, data=None):
         """

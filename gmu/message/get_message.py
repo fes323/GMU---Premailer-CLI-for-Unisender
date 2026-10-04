@@ -6,6 +6,8 @@ from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
 from gmu.utils.project_state import update_project_config
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.project_lock import locked_project
+from gmu.utils.unisender_urls import build_unisender_message_url
 
 app = typer.Typer()
 
@@ -20,6 +22,7 @@ def _first_message(result: Any) -> dict[str, Any]:
 
 @app.command(name="i", hidden=True)
 @app.command(name="info")
+@locked_project
 def get_message(
     id: Optional[int] = typer.Option(None, help="Message ID Unisender"),
     save: bool = typer.Option(False, "--save/--no-save", help="Сохранить метаданные письма в gmu.json"),
@@ -47,9 +50,11 @@ def get_message(
     if save:
         update_project_config({
             "message_id": message.get("id") or id,
+            "message_url": build_unisender_message_url(message.get("id") or id),
+            "message_creation_pending": False,
             "sender_name": message.get("sender_name"),
             "sender_email": message.get("sender_email"),
-            "subject": message.get("subject"),
+            "subject": " ".join((message.get("subject") or "").split()),
             "lang": message.get("lang_code"),
             "actual_version_id": actual_version_id,
             "created": message.get("created"),

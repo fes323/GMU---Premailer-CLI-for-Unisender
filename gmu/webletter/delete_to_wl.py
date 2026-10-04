@@ -8,22 +8,20 @@ from dotenv import load_dotenv
 from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.git_sync import run_git_auto_sync
 from gmu.utils.helpers import table_print
+from gmu.utils.project_lock import locked_project
 
 load_dotenv()
 app = typer.Typer()
-gmu_cfg = GmuConfig("gmu.json")
 
 
 @app.command(name="d", hidden=True)
 @app.command(name="delete")
+@locked_project
 def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter")):
-
-    if gmu_cfg.exists() is False:
-        table_print("ERROR", 'Файл gmu.json не найден.')
-        gmu_cfg.create()
+    gmu_cfg = GmuConfig("gmu.json")
 
     headers = {"Authorization": os.environ.get("WL_AUTH_TOKEN")}
-    cfg_data = gmu_cfg.load()
+    cfg_data = gmu_cfg.load() if gmu_cfg.exists() else {}
     if id is not None:
         id = id
     else:
@@ -36,13 +34,16 @@ def delete_to_wl(id: str = typer.Option(None, help="ID письма в Webletter
 
     endpoint = os.environ.get("WL_ENDPOINT", "https://wl.gefera.ru/api/webletters/")
 
-    requests.delete(
+    if not os.environ.get("WL_AUTH_TOKEN"):
+        raise ValueError("Не задан WL_AUTH_TOKEN.")
+    response = requests.delete(
         f"{endpoint.rstrip('/')}/{id}",
         headers=headers,
+        timeout=(10, 120),
     )
+    response.raise_for_status()
 
-    cfg_data["webletter_id"] = None
-    cfg_data["webletter_url"] = None
-    gmu_cfg.update(cfg_data)
+    if str(cfg_data.get("webletter_id")) == str(id):
+        gmu_cfg.update({"webletter_id": None, "webletter_url": None})
     table_print("SUCCESS", f"Письмо успешно удалено из Webletter")
     run_git_auto_sync("удаления письма из WebLetter")

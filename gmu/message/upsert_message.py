@@ -1,14 +1,6 @@
-import os
-
 import typer
 
-from gmu.utils.archive import archive_email
-from gmu.utils.GmuConfig import GmuConfig
-from gmu.utils.git_sync import run_git_auto_sync
-from gmu.utils.helpers import table_print
-from gmu.utils.HTMLprocessor import HTMLProcessor
-from gmu.utils.Unisender import UnisenderClient
-from gmu.utils.unisender_urls import build_unisender_message_url
+from gmu.utils.message_upload import upload_message
 
 app = typer.Typer()
 
@@ -16,73 +8,10 @@ app = typer.Typer()
 @app.command(name="u", hidden=True)
 @app.command(name="upsert")
 def create_or_update_message(
-    list_id: str = typer.Option(20547119, help="ID списка рассылки"),
-    html_filename: str = typer.Option(
-        None, help="Имя HTML файла (по умолчанию первый .html в папке)"),
+    list_id: int = typer.Option(20547119, help="ID списка рассылки"),
+    html_filename: str = typer.Option(None, help="Имя HTML-файла"),
     images_folder: str = typer.Option("images", help="Папка с картинками"),
-    force: bool = typer.Option(False, help="Skip delete stage")
+    force: bool = typer.Option(False, help="Пересоздать письмо с удалением старого"),
 ):
-    """
-    Создает E-mail письмо в Unisender. В буфер обмена помещает ID созданного письма.
-    Если файл конфигурации существует, предлагает обновить или пересоздать.
-    """
-    uClient = UnisenderClient()
-
-    htmlProcessor = HTMLProcessor(
-        html_filename, images_folder, True, True)
-    process_result = htmlProcessor.process()
-
-    arhchive_path = archive_email(html_filename,
-                                  process_result.get('inlined_html'),
-                                  process_result.get('attachments'))
-    process_result['data']['zip_size'] = os.path.getsize(arhchive_path)
-    gmu_cfg = GmuConfig()
-
-    # Если gmu.json существует, то обновляем
-    if gmu_cfg.exists() and gmu_cfg.data.get("message_id", None) is not None:
-
-        if force == False:
-            # 1. Удаляем существующее письмо
-            uClient.delete_message(gmu_cfg.data.get("message_id", None))
-
-        # 2. Создаем новое письмо
-        api_result = uClient.create_email_message(
-            sender_name=process_result.get('data', {}).get('sender_name'),
-            sender_email=process_result.get('data', {}).get('sender_email'),
-            subject=process_result.get('data', {}).get('subject'),
-            body=process_result.get('inlined_html', ''),
-            list_id=int(list_id),
-            attachments=process_result.get('attachments'),
-            lang=process_result.get('data', {}).get('language')
-        )
-
-        message_id = api_result.get('message_id', '')
-        process_result["data"]["message_id"] = message_id
-        process_result["data"]["message_url"] = build_unisender_message_url(message_id)
-
-        gmu_cfg.update(process_result.get('data', {}))
-        table_print("SUCCESS",
-                    f"Письмо обновлено в Unisender. Message ID: {message_id} | URL: {process_result['data']['message_url']}")
-        run_git_auto_sync("обновления письма в Unisender")
-
-    # Если gmu.json не существует, то создаем
-    else:
-        api_result = uClient.create_email_message(
-            sender_name=process_result.get('data', {}).get('sender_name'),
-            sender_email=process_result.get('data', {}).get('sender_email'),
-            subject=process_result.get('data', {}).get('subject'),
-            body=process_result.get('inlined_html', ''),
-            list_id=int(list_id),
-            attachments=process_result.get('attachments'),
-            lang=process_result.get('data', {}).get('language')
-        )
-
-        message_id = api_result.get('message_id', '')
-        process_result["data"]["message_id"] = message_id
-        process_result["data"]["message_url"] = build_unisender_message_url(message_id)
-
-        gmu_cfg.create(process_result.get('data', {}))
-
-        table_print("SUCCESS",
-                    f"Письмо загружено в Unisender. Message ID: {message_id} | URL: {process_result['data']['message_url']}")
-        run_git_auto_sync("создания письма в Unisender")
+    """Создать или заменить письмо; перед заменой проверяется HTML."""
+    upload_message(list_id, html_filename, images_folder, mode="upsert", force=force)

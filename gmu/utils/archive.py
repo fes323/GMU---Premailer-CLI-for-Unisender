@@ -23,11 +23,13 @@ def archive_email(html_filename: str, html_content: str, attachments: dict, arch
     :return: путь к архиву
     """
     if not archive_name:
-        html_files = list(Path(".").glob("*.html"))
-        if not html_files:
-            raise FileNotFoundError(
-                "HTML не найден в рабочей директории. Проверьте, что вы в корректной директории.")
-        name = html_files[0].stem
+        if html_filename:
+            name = Path(html_filename).stem
+        else:
+            html_files = sorted(Path(".").glob("*.html"))
+            if len(html_files) != 1:
+                raise ValueError("Укажите HTML-файл для архива: найдено не ровно одно письмо.")
+            name = html_files[0].stem
         archive_name = f"{name}.zip"
     images_folder = "images"
 

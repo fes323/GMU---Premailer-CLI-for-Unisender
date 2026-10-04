@@ -68,16 +68,19 @@ class HTMLProcessor:
     def _load_html(self):
         """Загружает HTML-файл и записывает содержимое в self.original_html."""
         if not self.html_filename:
-            html_files = list(Path(".").glob("*.html"))
+            html_files = sorted(Path(".").glob("*.html"))
             if not html_files:
                 raise FileNotFoundError(
                     "HTML file not found in this directory")
+            if len(html_files) > 1:
+                raise ValueError("Найдено несколько HTML-файлов. Укажите --html-filename.")
             html_file = html_files[0]
         else:
             html_file = Path(self.html_filename)
             if not html_file.exists():
                 raise FileNotFoundError(f"File {html_file} not found")
 
+        self.html_filename = str(html_file)
         self.original_html = html_file.read_text(encoding="utf-8")
 
     def _get_soup(self):
@@ -104,7 +107,7 @@ class HTMLProcessor:
 
     def _extract_subject(self):
         """Извлекает текст <title> как тему письма (subject)."""
-        self.subject = self.soup.title.string if self.soup.title else "No Subject"
+        self.subject = " ".join(self.soup.title.get_text().split()) if self.soup.title else None
 
     def _extract_preheader(self):
         """
@@ -112,17 +115,17 @@ class HTMLProcessor:
         если там содержится не пустой текст.
         """
         hidden_divs = self.soup.find_all(
-            lambda tag: tag.name == 'div' and 'display: none' in tag.get(
-                'style', '')
+            lambda tag: tag.name == 'div' and re.search(
+                r'(?:^|;)\s*display\s*:\s*none\s*(?:!important\s*)?(?:;|$)',
+                tag.get('style', ''), re.IGNORECASE)
         )
         for div in hidden_divs:
-            text = div.get_text(separator=' ', strip=True)
+            text = " ".join(div.get_text(separator=' ', strip=True).split())
+            text = text.strip(' \u200b\u200c\u200d\ufeff')
             # Проверка, чтобы текст не состоял только из пробелов/непечатаемых символов.
-            if text and not re.fullmatch(r'[\s\u200b\xa0&zwnj; ]+', text):
+            if text:
                 self.preheader = text
-            else:
-                self.preheader = None
-            break
+                break
 
     def _extract_language(self):
         """
@@ -151,6 +154,8 @@ class HTMLProcessor:
             width = int(
                 data_width) if data_width and data_width.isdigit() else None
             if src:
+                if re.match(r'^(?:https?://|//|data:|cid:)', src, re.IGNORECASE):
+                    continue
                 # Если replace_src=True, то в HTML подставляем только имя файла,
                 # иначе сохраняем относительный путь images/filename.
                 tag['src'] = Path(
@@ -248,12 +253,7 @@ class HTMLProcessor:
 
             img_file = Path(self.images_folder) / fname
             if not img_file.exists():
-                safe_log(
-                    'warning', f"Image {fname} not found in {self.images_folder}/")
-                console.print(
-                    f"[bold yellow]WARNING:[/bold yellow] Изображение {fname} не найдено в {self.images_folder}/"
-                )
-                continue
+                raise FileNotFoundError(f"Изображение {fname} не найдено в {self.images_folder}/")
 
             file_bytes = img_file.read_bytes()
             ext = fname.split('.')[-1].lower()
@@ -389,6 +389,8 @@ class HTMLProcessor:
         console.print("[Updating <img> src in HTML]")
         for tag in track(self.soup.find_all("img"), description=""):
             old_src = tag.get("src")
+            if not old_src or re.match(r'^(?:https?://|//|data:|cid:)', old_src, re.IGNORECASE):
+                continue
             old_basename = os.path.basename(old_src)
             # Если при обработке есть новое имя
             if old_basename in self.image_renames:
@@ -396,7 +398,7 @@ class HTMLProcessor:
                 if self.replace_src:
                     tag['src'] = Path(new_fname).name
                 else:
-                    tag['src'] = f"{self.images_folder}/{Path(new_fname).name}"
+                    tag['src'] = f"images/{Path(new_fname).name}"
 
     def _preserve_existing_dimensions(self):
         """

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from gmu.utils.GmuConfig import GmuConfig, merge_with_defaults
+from gmu.utils.user_settings import is_git_auto_sync_enabled, set_git_auto_sync
 
 
 def ensure_project_config(path: str = "gmu.json") -> tuple[GmuConfig, dict[str, Any]]:
@@ -30,15 +31,6 @@ def update_project_config(data: dict[str, Any], path: str = "gmu.json") -> bool:
 def get_project_settings(path: str = "gmu.json") -> dict[str, Any]:
     _, data = ensure_project_config(path)
     return data.get("settings", {})
-
-
-def is_git_auto_sync_enabled(path: str = "gmu.json") -> bool:
-    settings = get_project_settings(path)
-    return bool(settings.get("git_auto_sync", False))
-
-
-def set_git_auto_sync(enabled: bool, path: str = "gmu.json") -> bool:
-    return update_project_config({"settings": {"git_auto_sync": enabled}}, path)
 
 
 def get_letter_version(path: str = "gmu.json") -> int:

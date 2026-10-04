@@ -152,6 +152,7 @@ activemq-data/
 
 # Environments
 .env
+.gmu.lock
 .envrc
 .venv
 env/

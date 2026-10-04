@@ -6,12 +6,14 @@ from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
 from gmu.utils.project_state import update_project_config
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.project_lock import locked_project
 
 app = typer.Typer()
 
 
 @app.command(name="s", hidden=True, help="Получить статус кампании")
 @app.command(name="status", help="Получить статус кампании")
+@locked_project
 def get_campaign_status(campaign_id: Optional[int] = typer.Argument(None, help="ID")):
     gmu_cfg = GmuConfig()
     if campaign_id is None:

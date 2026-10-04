@@ -7,13 +7,15 @@ from gmu.utils.git_sync import run_git_auto_sync
 from gmu.utils.helpers import table_print, validate_datetime_string
 from gmu.utils.project_state import update_project_config
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.project_lock import locked_project
+from gmu.utils.unisender_urls import build_unisender_message_url
 
 app = typer.Typer()
-gmu_cfg = GmuConfig()
 
 
 @app.command(name="c", hidden=True)
 @app.command(name="create")
+@locked_project
 def create_campaign(
     message_id: Optional[int] = typer.Option(
         None, help="Message ID Unisender. Если значение пустое, то берется из gmu.json"),
@@ -39,6 +41,9 @@ def create_campaign(
     """
     Создает E-mail кампанию в Unisender.
     """
+    gmu_cfg = GmuConfig()
+    if now and start_time:
+        raise ValueError("Используйте только один параметр: --now или --start-time.")
     if message_id is None:
         try:
             message_id = gmu_cfg.load().get('message_id', None)
@@ -70,6 +75,7 @@ def create_campaign(
             if gmu_cfg.exists():
                 gmu_cfg.update({
                     "message_id": message_id,
+                    "message_url": build_unisender_message_url(message_id),
                     "actual_version_id": actual_message_id,
                 })
 
@@ -86,9 +92,12 @@ def create_campaign(
     )
 
     campaign_id = result.get("campaign_id")
+    if not campaign_id:
+        raise RuntimeError("API не вернул campaign_id; проверьте кампании в Unisender.")
     campaign_status = result.get("status")
     update_project_config({
         "message_id": message_id,
+        "message_url": build_unisender_message_url(message_id),
         "campaign_id": campaign_id,
         "campaign_status": campaign_status,
     })

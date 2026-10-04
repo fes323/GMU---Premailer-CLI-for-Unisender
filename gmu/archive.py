@@ -14,8 +14,8 @@ def archive(
     images_folder: str = typer.Option("images", help="Папка с картинками"),
 ):
     htmlProcessor = HTMLProcessor(
-        html_filename, images_folder, True, True)
+        html_filename, images_folder, False, True)
     process_result = htmlProcessor.process()
 
-    archive_email(html_filename, process_result.get(
+    archive_email(htmlProcessor.html_filename, process_result.get(
         'inlined_html'), process_result.get('attachments'))

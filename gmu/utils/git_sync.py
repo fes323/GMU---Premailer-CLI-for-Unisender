@@ -44,7 +44,7 @@ def run_git_auto_sync(action_name: str = "обновления письма") ->
         )
         return False
 
-    ok, output = _run_git(["pull"])
+    ok, output = _run_git(["pull", "--ff-only"])
     if not ok:
         table_print("ERROR", f"git pull не выполнен после {action_name}. {output}")
         return False

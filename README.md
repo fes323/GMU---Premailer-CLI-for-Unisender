@@ -84,7 +84,7 @@ poetry build
 Установка:
 
 ```bash
-pip install dist/gmu-2.0.0-py3-none-any.whl
+pip install dist/gmu-2.0.2-py3-none-any.whl
 ```
 
 После установки Python-пакета установите JS-зависимости. Можно глобально:
@@ -181,7 +181,9 @@ letter-project/
 - `actual_version_id` - актуальная версия письма в Unisender.
 - `zip_size` - размер ZIP-архива.
 - `letter_version` - версия письма для git-коммитов.
-- `settings.git_auto_sync` - включение git-автосинхронизации.
+- `message_creation_pending` - создание письма начато, но его результат ещё не сохранён.
+
+Настройка `git_auto_sync` хранится отдельно для всех проектов: Windows — `%APPDATA%\gmu\settings.json`, Linux/macOS — `~/.config/gmu/settings.json`. Старое поле `settings.git_auto_sync` в проектах больше не управляет синхронизацией; включите её один раз командой `gmu cfg git --enable`.
 
 ## Команды
 
@@ -211,7 +213,7 @@ gmu archive [--html-filename FILE] [--images-folder FOLDER]
 gmu a [--html-filename FILE] [--images-folder FOLDER]
 ```
 
-Создает ZIP-архив письма. Если `--html-filename` не указан, используется первый `.html` в текущей папке.
+Создает ZIP-архив письма. Если `--html-filename` не указан, используется единственный `.html` в текущей папке; при нескольких файлах укажите `--html-filename`.
 
 Пример:
 
@@ -236,7 +238,7 @@ gmu m c [--list-id LIST_ID] [--html-filename FILE] [--images-folder FOLDER] [--f
 gmu m c --list-id 20547119 --html-filename index.html
 ```
 
-`--force` пропускает проверку, что в `gmu.json` уже есть `message_id`.
+`--force` заменяет существующее письмо: старое удаляется, затем создаётся новое. Для обычного обновления используйте `gmu m u`.
 
 #### Создать или пересоздать письмо
 
@@ -428,7 +430,7 @@ gmu settings show
 gmu cfg show
 ```
 
-Показывает `letter_version`, `git_auto_sync`, `message_id`, `webletter_id`, `campaign_id`.
+Показывает `letter_version`, глобальный `git_auto_sync`, `message_id`, `webletter_id`, `campaign_id`.
 
 #### Git-автосинхронизация
 
@@ -439,10 +441,10 @@ gmu settings git --disable
 gmu cfg git --enable
 ```
 
-Когда `settings.git_auto_sync=true`, после успешных команд, которые меняют письмо, кампанию или WebLetter, GMU выполняет:
+Включение и отключение сохраняются для текущего пользователя и действуют во всех проектах. Когда глобальный `git_auto_sync=true`, после успешных команд, которые меняют письмо, кампанию или WebLetter, GMU выполняет:
 
 ```bash
-git pull
+git pull --ff-only
 git add ./
 git commit -m "<название рабочей директории> v <letter_version>"
 git push
@@ -503,7 +505,7 @@ gmu cfg version 1
 gmu wl u
 ```
 
-После успешной загрузки GMU выполнит `git pull`, увеличит `letter_version`, сделает `git add ./`, создаст коммит вида `my-letter v 2` и выполнит `git push`.
+После успешной загрузки GMU выполнит `git pull --ff-only`, увеличит `letter_version`, сделает `git add ./`, создаст коммит вида `my-letter v 2` и выполнит `git push`.
 
 ### Ручная проверка актуальной версии письма
 
@@ -514,7 +516,7 @@ gmu c c --start-time "2026-05-04 10:00"
 
 ## Обработка HTML и изображений
 
-GMU ищет HTML-файл в текущей папке, если `--html-filename` не указан. Изображения по умолчанию берутся из папки `images`.
+GMU выбирает единственный HTML-файл в текущей папке, если `--html-filename` не указан. Если файлов несколько, нужно указать файл явно. Тема из `<title>` и прехедер сохраняются одной строкой: переносы и отступы форматтера заменяются пробелами. Внешние URL изображений сохраняются; отсутствие локального изображения останавливает обработку до удаления старого письма. Изображения по умолчанию берутся из папки `images`.
 
 CSS инлайнится через Juice. Конфиг: `gmu/utils/juice_config.js`.
 
@@ -536,6 +538,20 @@ SVG-файлы конвертируются в PNG через `@resvg/resvg-js`,
 - [`getMessage`](https://www.unisender.com/ru/support/api/statistics/getmessage/)
 
 ## Устранение неполадок
+
+### Прервалось создание письма
+
+GMU сохраняет конфиг без запроса на его перезапись и блокирует одновременные изменения в одной папке. `--force` не пропускает удаление старого письма.
+
+При таймауте, некорректном ответе или ошибке сохранения ID повторное создание блокируется через `message_creation_pending`: сервер мог успеть создать письмо. Проверьте кабинет Unisender. Если письмо создано, восстановите привязку:
+
+```bash
+gmu m info --id 123456789 --save
+```
+
+Если убедились, что письмо не создано, установите `message_creation_pending=false` в `gmu.json` и повторите `gmu m u`. После явного отказа API блокировка снимается автоматически.
+
+Обновление с вложениями всё ещё выполняется удалением и созданием: локальная проверка происходит до удаления, но при отказе сервера создать новое письмо старое уже может быть удалено. GMU очищает его ID, чтобы следующий запуск не пытался удалить его снова.
 
 ### Не работает Unisender API
 

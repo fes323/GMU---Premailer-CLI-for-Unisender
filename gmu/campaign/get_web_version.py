@@ -6,12 +6,14 @@ from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
 from gmu.utils.project_state import update_project_config
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.project_lock import locked_project
 
 app = typer.Typer()
 
 
 @app.command(name="w", hidden=True, help="Получить ссылку на веб-версию кампании")
 @app.command(name="web", help="Получить ссылку на веб-версию кампании")
+@locked_project
 def get_web_version(campaign_id: Optional[int] = typer.Option(None, help="ID кампании")):
     gmu_cfg = GmuConfig()
     if campaign_id is None:

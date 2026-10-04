@@ -6,12 +6,15 @@ from gmu.utils.GmuConfig import GmuConfig
 from gmu.utils.helpers import table_print
 from gmu.utils.project_state import update_project_config
 from gmu.utils.Unisender import UnisenderClient
+from gmu.utils.project_lock import locked_project
+from gmu.utils.unisender_urls import build_unisender_message_url
 
 app = typer.Typer()
 
 
 @app.command(name="act", hidden=True)
 @app.command(name="actual")
+@locked_project
 def actual_message_version(
     id: Optional[int] = typer.Option(None, help="Message ID Unisender"),
     save: bool = typer.Option(True, "--save/--no-save", help="Сохранить actual_version_id в gmu.json"),
@@ -35,6 +38,7 @@ def actual_message_version(
     if save and actual_version_id:
         update_project_config({
             "message_id": actual_version_id,
+            "message_url": build_unisender_message_url(actual_version_id),
             "actual_version_id": actual_version_id,
         })
 
