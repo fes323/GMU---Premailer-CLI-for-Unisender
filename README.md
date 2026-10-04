@@ -84,7 +84,7 @@ poetry build
 Установка:
 
 ```bash
-pip install dist/gmu-2.0.3-py3-none-any.whl
+pip install dist/gmu-2.0.4-py3-none-any.whl
 ```
 
 После установки Python-пакета установите JS-зависимости. Можно глобально:
@@ -194,6 +194,7 @@ letter-project/
 | `gmu --version` | `gmu -V` | Версия CLI |
 | `gmu version` | `gmu v` | Версия CLI |
 | `gmu archive` | `gmu a` | Создать ZIP-архив |
+| `gmu jpeg` | `gmu jpg` | JPEG-снимок всего письма |
 | `gmu message ...` | `gmu m ...` | Команды Unisender для писем |
 | `gmu campaign ...` | `gmu c ...` | Команды Unisender для кампаний |
 | `gmu settings ...` | `gmu cfg ...` | Настройки проекта |
@@ -220,6 +221,28 @@ gmu a [--html-filename FILE] [--images-folder FOLDER]
 ```bash
 gmu a --html-filename index.html --images-folder images
 ```
+
+### JPEG-снимок письма
+
+```bash
+gmu jpeg
+gmu jpeg --html-filename index.html --width 800
+gmu jpeg --html-filename index.html --output preview/letter.jpeg --quality 95
+```
+
+Создаёт один JPEG на всю высоту письма, включая содержимое ниже первого экрана. По умолчанию используется единственный HTML-файл в текущей папке, ширина окна 1280 px, качество 95; результат сохраняется рядом с HTML как `<имя>.jpg`. Можно указать ширину 375 px для мобильного вида. Локальные пути изображений и CSS разрешаются относительно HTML. Исходники и `gmu.json` не изменяются.
+
+Перед съёмкой GMU ждёт загрузки изображений и шрифтов; ленивые изображения также загружаются. Ошибка загрузки изображения останавливает команду, чтобы не сохранить неполный снимок.
+
+Старый вызов `gmu pdf` совместим с этой командой и теперь создаёт JPEG. `wkhtmltopdf` и `pdfkit` для неё не нужны. Снимок использует экранный вид Chromium, без разбивки на страницы PDF.
+
+Библиотека Playwright устанавливается вместе с GMU. GMU использует установленный Chromium, Edge или Chrome. Если браузер не найден:
+
+```bash
+playwright install chromium
+```
+
+Браузер можно выбрать явно: `gmu jpeg --browser msedge`, `--browser chrome` или `--browser chromium`.
 
 ### Письма Unisender
 

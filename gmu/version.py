@@ -1,6 +1,6 @@
 import typer
 
-VERSION_TEXT = "Unisender CLI v2.0.3"
+VERSION_TEXT = "Unisender CLI v2.0.4"
 
 app = typer.Typer()
 

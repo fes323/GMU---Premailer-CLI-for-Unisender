@@ -8,6 +8,7 @@ import typer
 from dotenv import load_dotenv
 
 from gmu.archive import app as archive_app
+from gmu.jpeg import app as jpeg_app
 from gmu.campaign import app as campaign_app
 from gmu.message import app as message_app
 from gmu.settings import app as settings_app
@@ -60,6 +61,7 @@ def main(
 
 app.add_typer(version_app)
 app.add_typer(archive_app)
+app.add_typer(jpeg_app)
 app.add_typer(campaign_app, name="campaign")
 app.add_typer(campaign_app, name="c", hidden=True)
 app.add_typer(message_app, name="message")
