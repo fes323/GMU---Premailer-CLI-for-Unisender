@@ -52,7 +52,11 @@ def run_git_auto_sync(action_name: str = "обновления письма") ->
     version = bump_letter_version()
     commit_message = f"{Path.cwd().name} v {version}"
 
-    ok, output = _run_git(["add", "./"])
+    # Letter repositories do not inherit GMU's own .gitignore. On Windows
+    # the active OS lock also prevents Git from reading this file.
+    ok, output = _run_git([
+        "add", "--", "./", ":(exclude).gmu.lock", ":(glob,exclude)**/.gmu.lock",
+    ])
     if not ok:
         table_print("ERROR", f"git add ./ не выполнен. {output}")
         return False

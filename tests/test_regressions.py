@@ -276,6 +276,59 @@ class UploadTests(ProjectTest):
 
 
 class OtherRegressionTests(ProjectTest):
+    def test_git_sync_in_letter_repository_excludes_active_and_nested_locks(self):
+        from gmu.utils.git_sync import run_git_auto_sync
+
+        def git(*args):
+            result = subprocess.run(['git', *args], capture_output=True, text=True,
+                                    encoding='utf-8', errors='replace')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout
+
+        remote = Path('remote.git').resolve()
+        git('init', '--bare', str(remote))
+        Path('letters').mkdir()
+        os.chdir('letters')
+        git('init', '-b', 'main')
+        git('config', 'user.name', 'GMU test')
+        git('config', 'user.email', 'gmu-test@example.com')
+        git('config', 'commit.gpgsign', 'false')
+        git('remote', 'add', 'origin', str(remote))
+        Path('README.md').write_text('Test repository')
+        git('add', 'README.md')
+        git('commit', '-m', 'Initial commit')
+        git('push', '-u', 'origin', 'main')
+        project = Path('2026/Rosmould Rosplast 3D/10) October/RMRP-0610-2257')
+        project.mkdir(parents=True)
+        os.chdir(project)
+        Path('index.html').write_text('<title>Test</title>')
+        Path('nested').mkdir()
+        Path('nested/.gmu.lock').write_bytes(b'0')
+        with patch('gmu.utils.git_sync.is_git_auto_sync_enabled', return_value=True), project_lock():
+            self.assertTrue(run_git_auto_sync())
+        self.assertEqual(git('ls-files', '.gmu.lock', 'nested/.gmu.lock').strip(), '')
+        self.assertIn('index.html', git('ls-files'))
+        self.assertIn('gmu.json', git('ls-files'))
+        self.assertEqual(self.load()['letter_version'], 1)
+        self.assertEqual(git('rev-parse', 'HEAD').strip(), git('rev-parse', 'origin/main').strip())
+
+    def test_webletter_success_prints_saved_url_with_separator(self):
+        Path('letter.zip').write_bytes(b'zip')
+        processor = Mock(html_filename='index.html')
+        processor.process.return_value = {'data': {'language': 'ru'}, 'inlined_html': '<html/>', 'attachments': {}}
+        with patch.dict(os.environ, {'WL_AUTH_TOKEN': 'test', 'WL_ENDPOINT': 'https://example.com/api',
+                                     'WL_URL': 'https://wl.gefera.ru'}), \
+                patch('gmu.webletter.upsert.HTMLProcessor', return_value=processor), \
+                patch('gmu.webletter.upsert.archive_email', return_value='letter.zip'), \
+                patch('gmu.webletter.upsert.requests.post') as post, \
+                patch('gmu.webletter.upsert.run_git_auto_sync', return_value=False):
+            post.return_value.json.return_value = {'data': {'id': '1791146826642'}}
+            result = CliRunner().invoke(app, ['wl', 'u'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        expected_url = 'https://wl.gefera.ru/1791146826642'
+        self.assertEqual(self.load()['webletter_url'], expected_url)
+        self.assertIn(expected_url, result.output)
+
     def test_deleting_explicit_other_message_keeps_project_binding(self):
         self.save(message_id=11, message_url='url')
         with patch('gmu.message.delete_message.UnisenderClient') as client:

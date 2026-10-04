@@ -84,7 +84,7 @@ poetry build
 Установка:
 
 ```bash
-pip install dist/gmu-2.0.2-py3-none-any.whl
+pip install dist/gmu-2.0.3-py3-none-any.whl
 ```
 
 После установки Python-пакета установите JS-зависимости. Можно глобально:
@@ -445,12 +445,14 @@ gmu cfg git --enable
 
 ```bash
 git pull --ff-only
-git add ./
+git add -- ./ ':(exclude).gmu.lock' ':(glob,exclude)**/.gmu.lock'
 git commit -m "<название рабочей директории> v <letter_version>"
 git push
 ```
 
 Перед `git add ./` команда увеличивает `letter_version` в `gmu.json`, поэтому новая версия попадает в коммит. Если git-команда завершилась ошибкой, выполненный деплой не откатывается.
+
+Файлы `.gmu.lock` исключаются из автосинхронизации независимо от `.gitignore` репозитория письма. Это предотвращает ошибку индексации активной блокировки на Windows.
 
 #### Версия письма
 

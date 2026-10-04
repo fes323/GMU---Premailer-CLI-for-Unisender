@@ -71,7 +71,7 @@ def deploy_to_wl():
             gmu_cfg.update(process_result.get("data", {}))
 
             table_print("SUCCESS",
-                        f"Файл успешно загружен на WL - {os.environ.get('WL_URL')}{resData.get('id')}")
+                        f"Файл успешно загружен на WL - {process_result['data']['webletter_url']}")
             run_git_auto_sync("загрузки письма в WebLetter")
         else:
             raise RuntimeError(f"Ошибка при загрузке файла на WL: {result_json}")
