@@ -114,7 +114,11 @@ class HTMLProcessor:
         Извлекает «прехедер» (preheader) из первого <div style="display: none">,
         если там содержится не пустой текст.
         """
-        hidden_divs = self.soup.find_all(
+        _, self.preheader = self._find_preheader(self.soup)
+
+    @staticmethod
+    def _find_preheader(soup, expected_text=None):
+        hidden_divs = soup.find_all(
             lambda tag: tag.name == 'div' and re.search(
                 r'(?:^|;)\s*display\s*:\s*none\s*(?:!important\s*)?(?:;|$)',
                 tag.get('style', ''), re.IGNORECASE)
@@ -123,9 +127,33 @@ class HTMLProcessor:
             text = " ".join(div.get_text(separator=' ', strip=True).split())
             text = text.strip(' \u200b\u200c\u200d\ufeff')
             # Проверка, чтобы текст не состоял только из пробелов/непечатаемых символов.
-            if text:
-                self.preheader = text
-                break
+            if text and (expected_text is None or text == expected_text):
+                return div, text
+        return None, None
+
+    def _normalize_webletter_metadata(self):
+        """Приводит итоговый HTML к регулярным выражениям WebLetter API."""
+        soup = BeautifulSoup(self.result_html, "html.parser")
+        if soup.title is not None:
+            # WL ожидает ровно <title> и не использует dotAll для его текста.
+            soup.title.attrs.clear()
+            soup.title.string = self.subject or ""
+
+        div, _ = self._find_preheader(soup, expected_text=self.preheader)
+        if div is not None and self.preheader is not None:
+            style = "display:none;max-height:0px;overflow:hidden"
+            # Сохраняем исходные атрибуты и стили скрытого блока. Внутренний
+            # div содержит только текст, который WL извлекает без удаления HTML.
+            # Повторная обработка уже совместимого блока не добавляет обёрток.
+            canonical = div if div.attrs == {'style': style} else div.find(
+                'div', attrs={'style': style})
+            if canonical is None:
+                canonical = soup.new_tag('div', style=style)
+                div.clear()
+                div.append(canonical)
+            canonical.string = self.preheader or ""
+
+        self.result_html = str(soup)
 
     def _extract_language(self):
         """
@@ -495,6 +523,8 @@ class HTMLProcessor:
         self._remove_spaces_from_style()
         # 7. Инлайн CSS (Juice)
         self._inline_css()
+        # 8. Формат метаданных WL фиксируем после изменения стилей инлайнером.
+        self._normalize_webletter_metadata()
 
         return {
             'data': {

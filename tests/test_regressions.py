@@ -1,11 +1,13 @@
 import copy
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 import zipfile
+from html import unescape
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -90,6 +92,69 @@ class HTMLTests(ProjectTest):
         <div style="DISPLAY : NONE">news</div>''')
         processor._extract_preheader()
         self.assertEqual(processor.preheader, 'news')
+
+    def test_archive_metadata_matches_webletter_regexes_after_juice(self):
+        from bs4 import BeautifulSoup
+        from gmu.utils.archive import archive_email
+
+        source = '''<!DOCTYPE html><html lang="ru"><head>
+        <title class="subject"> Тема\n письма &amp; новости </title>
+        <style>div { font-family: Arial; } .preview { display: none !important; }</style>
+        </head><body><!--[if mso]><p>Outlook</p><![endif]-->
+        <div style="display:none">&zwnj;&nbsp;&#8203;</div>
+        <div id="preview" class="preview" style="display: none !important; opacity: 0; mso-hide: all">
+        <h1>Анонс\n <span>и новости &amp; события</span></h1></div>
+        <p id="content">Основной текст</p></body></html>'''
+        processor = self.processor(source)
+        result = processor.process()
+        archive = archive_email('letter.html', result['inlined_html'], result['attachments'])
+        with zipfile.ZipFile(archive) as zipped:
+            html = zipped.read('index.html').decode('utf-8')
+            self.assertIsNone(zipped.testzip())
+
+        # Exact patterns from webletter-api/src/services/file.service.ts.
+        title = re.search(r'<title>(.*?)</title>', html)
+        preheader = re.search(
+            r'<div style="display:none;max-height:0px;overflow:hidden">\s*(?:<h1\b[^>]*>)?(.*?)(?:</h1>)?\s*</div>',
+            html, re.DOTALL)
+        self.assertIsNotNone(title)
+        self.assertIsNotNone(preheader)
+        self.assertEqual(unescape(title[1]).strip(), result['data']['subject'])
+        self.assertEqual(unescape(preheader[1]).strip(), result['data']['preheader'])
+        self.assertEqual(result['data']['subject'], 'Тема письма & новости')
+        self.assertEqual(result['data']['preheader'], 'Анонс и новости & события')
+        final = BeautifulSoup(html, 'html.parser')
+        self.assertRegex(final.find(id='preview')['style'], r'mso-hide:\s*all')
+        self.assertEqual(final.find(id='content').get_text(), 'Основной текст')
+        self.assertIn('<!--[if mso]><p>Outlook</p><![endif]-->', html)
+        self.assertEqual(Path('letter.html').read_text(encoding='utf-8'), source)
+
+    def test_webletter_normalization_is_repeatable_and_handles_missing_metadata(self):
+        for source in (
+            '<html><head></head><body><p>Content</p></body></html>',
+            '<html><head><title>Title</title></head><body>'
+            '<div style="display:none;max-height:0px;overflow:hidden"><h1>Preview</h1></div>'
+            '</body></html>',
+        ):
+            with self.subTest(source=source):
+                processor = self.processor(source)
+                first = processor.process()['inlined_html']
+                processor.original_html = first
+                second = processor.process()['inlined_html']
+                self.assertEqual(first, second)
+
+    def test_css_hidden_content_is_not_replaced_with_preheader(self):
+        from bs4 import BeautifulSoup
+
+        for preview in ('', '<div style="display:none">Preview</div>'):
+            with self.subTest(preview=preview):
+                processor = self.processor(
+                    '<html><head><style>.hidden { display:none }</style></head><body>'
+                    '<div class="hidden" id="other">Other content</div>' + preview + '</body></html>')
+                result = processor.process()
+                final = BeautifulSoup(result['inlined_html'], 'html.parser')
+                self.assertEqual(final.find(id='other').get_text(), 'Other content')
+                self.assertEqual(result['data']['preheader'], 'Preview' if preview else None)
 
     def test_external_and_missing_src_are_preserved(self):
         processor = self.processor('<img src="https://example.com/a.png"><img><img src="images/a.png">')
