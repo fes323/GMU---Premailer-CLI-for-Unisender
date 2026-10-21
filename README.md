@@ -47,74 +47,141 @@ GMU автоматизирует подготовку HTML-писем, загр�
 
 ### Требования
 
-Проверьте версии:
+- Python 3.11 или новее.
+- Node.js 18 или новее и npm.
+- Git для установки и обновления из репозитория.
 
-```bash
-python --version
+Poetry для обычной установки не нужен. Команды ниже устанавливают GMU из этого репозитория, без зависимости от публикации пакета в PyPI.
+
+### Windows (PowerShell)
+
+Установите [Python](https://www.python.org/downloads/windows/), [Node.js](https://nodejs.org/en/download) и [Git](https://git-scm.com/downloads/win). В установщике Python включите добавление Python в `PATH` и установку Python Launcher (`py`). Затем откройте новое окно PowerShell.
+
+В примерах выбран Python 3.11. Если у вас другая версия, замените `py -3.11` во всех командах на соответствующую, например `py -3.12`. Посмотреть установленные версии можно командой `py --list`.
+
+```powershell
+py -3.11 --version
+node --version
+npm.cmd --version
+git --version
+```
+
+Склонируйте репозиторий в постоянную папку и установите GMU:
+
+```powershell
+git clone https://github.com/fes323/GMU---Premailer-CLI-for-Unisender..git "$env:USERPROFILE\gmu-source"
+Set-Location "$env:USERPROFILE\gmu-source"
+py -3.11 -m pip install --upgrade .
+npm.cmd install -g juice@11.0.1 @resvg/resvg-js@2.6.2
+py -3.11 -m playwright install chromium
+```
+
+Если pip отсутствует, сначала выполните `py -3.11 -m ensurepip --upgrade`, затем повторите установку. `npm.cmd` позволяет запускать npm из PowerShell без изменения политики выполнения скриптов.
+
+Чтобы `gmu` находился из любой директории, добавьте каталог скриптов выбранного Python в пользовательский `PATH`:
+
+```powershell
+$gmuScripts = py -3.11 -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+$gmuUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if (($gmuUserPath -split ';') -notcontains $gmuScripts) {
+    [Environment]::SetEnvironmentVariable('Path', "$gmuScripts;$gmuUserPath", 'User')
+}
+$env:Path = "$gmuScripts;$env:Path"
+```
+
+Создайте пользовательский `.env` по инструкции в разделе «Настройка окружения». Затем проверьте запуск из другой папки:
+
+```powershell
+Set-Location $env:USERPROFILE
+Get-Command gmu -All
+gmu --version
+gmu --help
+npm.cmd ls -g juice @resvg/resvg-js
+```
+
+Новые окна PowerShell и CMD будут использовать сохранённый `PATH`. Если `Get-Command gmu -All` показывает несколько установок, первая должна относиться к выбранному Python. Для обновления уже установленного GMU используйте тот же Python, которым он был установлен.
+
+### macOS (Terminal, zsh)
+
+Установите [Homebrew](https://brew.sh/) по инструкции на сайте, включая предложенную настройку `brew shellenv`. Затем установите зависимости:
+
+```sh
+brew install python node git
+python3 --version
 node --version
 npm --version
+git --version
 ```
 
-Для установки из исходников нужен Poetry:
+GMU устанавливается в постоянное виртуальное окружение. Активировать его перед использованием команды не потребуется:
 
-```bash
-poetry --version
-```
-
-### Установка из репозитория
-
-```bash
-git clone https://github.com/fes323/GMU---Premailer-CLI-for-Unisender.git
-cd GMU---Premailer-CLI-for-Unisender
-poetry install
-npm install
-poetry run gmu --version
-```
-
-При разработке команды можно запускать через `poetry run`, например `poetry run gmu m u`.
-
-### Установка wheel
-
-Сборка:
-
-```bash
-poetry build
-```
-
-Установка:
-
-```bash
-pip install dist/gmu-2.0.4-py3-none-any.whl
-```
-
-После установки Python-пакета установите JS-зависимости. Можно глобально:
-
-```bash
+```sh
+git clone https://github.com/fes323/GMU---Premailer-CLI-for-Unisender..git "$HOME/gmu-source"
+cd "$HOME/gmu-source"
+python3 -m venv "$HOME/.local/share/gmu/venv"
+"$HOME/.local/share/gmu/venv/bin/python" -m pip install --upgrade .
 npm install -g juice@11.0.1 @resvg/resvg-js@2.6.2
+"$HOME/.local/share/gmu/venv/bin/python" -m playwright install chromium
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$HOME/.local/share/gmu/venv/bin/gmu" "$HOME/.local/bin/gmu"
 ```
 
-Или локально в папке проекта письма:
+Добавьте каталог команды в `PATH` для текущего и будущих окон Terminal:
 
-```bash
-npm install juice@11.0.1 @resvg/resvg-js@2.6.2
+```sh
+touch "$HOME/.zprofile"
+grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.zprofile" || \
+  printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.zprofile"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Проверка:
+Эта настройка предназначена для стандартной оболочки zsh. Если используете Bash, добавьте ту же строку `export PATH` в `~/.bash_profile`.
 
-```bash
+Создайте пользовательский `.env` по инструкции ниже и проверьте запуск:
+
+```sh
+cd "$HOME"
+command -v gmu
 gmu --version
+gmu --help
 npm ls -g juice @resvg/resvg-js
 ```
 
-### Установка через pip
+### Обновление существующей установки
 
-Если пакет опубликован в PyPI:
+Сначала сохраните существующий полный `.env` в пользовательскую папку из раздела «Настройка окружения». Если он уже находится там, повторно создавать его не нужно. Используйте способ обновления, соответствующий вашей установке.
 
-```bash
-pip install gmu
-npm install -g juice@11.0.1 @resvg/resvg-js@2.6.2
+Windows, для установки через выбранный Python:
+
+```powershell
+Set-Location "$env:USERPROFILE\gmu-source"
+git pull --ff-only
+py -3.11 -m pip install --upgrade .
+npm.cmd install -g juice@11.0.1 @resvg/resvg-js@2.6.2
+py -3.11 -m playwright install chromium
 gmu --version
 ```
+
+Если исходники уже находятся в другой папке, перейдите в неё вместо `gmu-source`. Python должен совпадать с установленной командой `gmu`; путь можно проверить через `Get-Command gmu -All`.
+
+macOS, для виртуального окружения из инструкции выше:
+
+```sh
+cd "$HOME/gmu-source"
+git pull --ff-only
+"$HOME/.local/share/gmu/venv/bin/python" -m pip install --upgrade .
+npm install -g juice@11.0.1 @resvg/resvg-js@2.6.2
+"$HOME/.local/share/gmu/venv/bin/python" -m playwright install chromium
+gmu --version
+```
+
+При обновлении Playwright может потребоваться новая версия Chromium, поэтому команда установки браузера включена и в обновление. Подробнее — в [документации Playwright](https://playwright.dev/python/docs/browsers).
+
+### Установка из wheel и разработка
+
+Вместо установки из исходников можно установить готовый wheel. В Windows выполните `py -3.11 -m pip install --upgrade "C:\path\to\gmu-2.0.4-py3-none-any.whl"`, в macOS — `"$HOME/.local/share/gmu/venv/bin/python" -m pip install --upgrade /path/to/gmu-2.0.4-py3-none-any.whl`. Подставьте имя полученного файла. Настройка `PATH`, `.env`, установка JS-зависимостей и Chromium остаются такими же, как выше.
+
+Для разработки в клонированном репозитории можно использовать Poetry: `poetry install`, `npm install`, `poetry run playwright install chromium`, `poetry run gmu --version`. Для сборки wheel выполните `poetry build`; результат появится в `dist/`.
 
 ### Переменные для нестандартных путей
 
@@ -146,6 +213,35 @@ GMU ищет `.env` рядом с пакетом или в пользовате�
 
 - Windows: `%APPDATA%\gmu\.env`
 - Linux/macOS: `~/.config/gmu/.env`
+
+Для запуска из любой папки храните полные настройки в пользовательском `.env`. Файл рядом с установленным пакетом имеет приоритет: при переносе убедитесь, что оба файла содержат актуальные настройки. Уже заданные переменные окружения также могут переопределять значения из `.env`.
+
+При первой установке создайте файл из `example.env` в папке исходников. Команды ниже сохраняют уже существующий пользовательский файл.
+
+Windows (PowerShell):
+
+```powershell
+$gmuConfigDir = Join-Path $env:APPDATA 'gmu'
+New-Item -ItemType Directory -Path $gmuConfigDir -Force | Out-Null
+$gmuEnvFile = Join-Path $gmuConfigDir '.env'
+if (-not (Test-Path -LiteralPath $gmuEnvFile)) {
+    Copy-Item -LiteralPath "$env:USERPROFILE\gmu-source\example.env" -Destination $gmuEnvFile
+}
+notepad $gmuEnvFile
+```
+
+macOS:
+
+```sh
+mkdir -p "$HOME/.config/gmu"
+if [ ! -f "$HOME/.config/gmu/.env" ]; then
+  cp "$HOME/gmu-source/example.env" "$HOME/.config/gmu/.env"
+fi
+chmod 600 "$HOME/.config/gmu/.env"
+nano "$HOME/.config/gmu/.env"
+```
+
+Заполните ключи и адреса сервисов. Если полный `.env` уже есть в старой установке, скопируйте его в пользовательскую папку вместо шаблона. Не заменяйте заполненный файл пустым `example.env`. При другом расположении исходников исправьте путь к шаблону в командах выше.
 
 Пример:
 
